@@ -1,0 +1,3306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="version" content="0.9">
+<title>ひつじあつめ v0.9</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  background:#1a2e1a;
+  height:100dvh;overflow:hidden;
+  font-family:'Klee One',cursive;
+  color:#c8f08a;
+  touch-action:none;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  -webkit-user-select:none;
+}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;}
+
+/* ========== 共通ボタン ========== */
+.btn{
+  padding:11px 28px;
+  background:linear-gradient(135deg,#4a9a2a,#6fcf4a);
+  border:none;border-radius:40px;
+  color:#fff;font-size:16px;
+  font-family:'Klee One',cursive;cursor:pointer;
+  box-shadow:0 4px 16px rgba(80,200,60,0.28);
+  transition:transform .1s;
+}
+.btn:active{transform:scale(0.96);}
+.btn.secondary{
+  background:linear-gradient(135deg,#4a6a8a,#6090b0);
+  box-shadow:0 4px 16px rgba(80,140,200,0.25);
+}
+.btn.danger{
+  background:linear-gradient(135deg,#8a4a2a,#c07040);
+  box-shadow:0 4px 16px rgba(200,100,60,0.25);
+}
+.btn.ghost{
+  background:transparent;
+  border:1.5px solid rgba(180,230,120,0.4);
+  color:rgba(200,240,160,0.9);
+  box-shadow:none;
+}
+input[type=text],input[type=number],select{
+  background:#1a3a1a;color:#c8f08a;
+  border:1px solid rgba(120,200,80,0.4);
+  border-radius:6px;padding:6px 10px;
+  font-size:14px;font-family:'Klee One',cursive;
+}
+input[type=number]{width:70px;}
+
+/* ========== シーン切替 ========== */
+.scene{
+  position:fixed;inset:0;
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:#0c1c0c;
+}
+.scene.active{display:flex;}
+
+/* ========== メインメニュー / 待機画面 ========== */
+#scene-menu,#scene-waiting,#scene-result,#scene-debug{
+  background:linear-gradient(180deg,#0c1f0c 0%,#1a2e1a 100%);
+  gap:14px;padding:20px;
+}
+#scene-menu h1,#scene-waiting h1,#scene-result h1{
+  font-size:clamp(28px,8vw,48px);
+  color:#d0f08c;
+  text-shadow:0 0 40px rgba(100,220,60,0.4);
+  letter-spacing:.08em;
+}
+.sub{
+  color:rgba(200,240,140,0.78);
+  font-size:clamp(11px,3vw,14px);
+  text-align:center;line-height:1.8;
+  max-width:340px;
+}
+.panel{
+  background:rgba(0,0,0,0.32);
+  border:1px solid rgba(120,200,80,0.18);
+  border-radius:14px;
+  padding:14px 18px;
+  width:min(340px,90vw);
+  display:flex;flex-direction:column;gap:10px;
+}
+.panel-title{
+  font-size:11px;
+  color:rgba(180,230,120,0.65);
+  text-align:center;
+  letter-spacing:.12em;
+}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:8px;}
+
+/* 難易度セレクタ */
+.diff-group{display:flex;gap:6px;}
+.diff-btn{
+  flex:1;padding:8px 4px;
+  background:rgba(40,70,40,0.5);
+  border:1.5px solid rgba(120,200,80,0.25);
+  border-radius:8px;
+  color:#a0d070;font-size:13px;
+  cursor:pointer;
+  font-family:'Klee One',cursive;
+}
+.diff-btn.active{
+  background:linear-gradient(135deg,#3a7024,#5aa038);
+  border-color:#a0e068;
+  color:#fff;
+  box-shadow:0 0 12px rgba(120,220,80,0.3);
+}
+
+/* ルームキー */
+.room-key-display{
+  font-family:'Courier New',monospace;
+  font-size:22px;letter-spacing:.3em;
+  background:rgba(0,0,0,0.4);
+  padding:8px 12px;border-radius:8px;
+  color:#f0e080;text-align:center;
+  border:1px dashed rgba(240,220,120,0.3);
+}
+.room-key-note{
+  font-size:9px;color:rgba(200,230,140,0.45);
+  text-align:center;margin-top:-4px;
+}
+
+/* ========== 待機画面：犬カスタマイズ ========== */
+.dog-preview{
+  width:180px;height:180px;
+  background:radial-gradient(circle at 50% 55%, #4a8c38 0%, #2a5a1e 90%);
+  border-radius:50%;
+  border:2px solid rgba(180,230,120,0.3);
+  display:flex;align-items:center;justify-content:center;
+  margin:4px 0;
+}
+.dog-preview canvas{display:block;}
+.opt-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}
+.opt-btn{
+  padding:6px 10px;min-width:38px;
+  background:rgba(40,70,40,0.5);
+  border:1.5px solid rgba(120,200,80,0.25);
+  border-radius:8px;
+  color:#a0d070;font-size:12px;
+  cursor:pointer;font-family:'Klee One',cursive;
+}
+.opt-btn.active{
+  background:rgba(90,160,56,0.6);
+  border-color:#a0e068;color:#fff;
+}
+.color-dot{
+  width:26px;height:26px;border-radius:50%;
+  border:2.5px solid rgba(120,200,80,0.25);
+  cursor:pointer;
+}
+.color-dot.active{border-color:#fff;box-shadow:0 0 8px rgba(255,255,255,0.4);}
+
+/* ========== ゲーム画面 UI ========== */
+#ui{
+  position:fixed;top:0;left:0;right:0;
+  display:flex;justify-content:space-around;align-items:center;
+  padding:6px 8px;
+  background:rgba(10,30,10,0.88);
+  backdrop-filter:blur(6px);
+  z-index:10;
+  border-bottom:1px solid rgba(120,200,80,0.2);
+  min-height:46px;
+}
+.ui-block{display:flex;flex-direction:column;align-items:center;gap:1px;flex-shrink:0;}
+.ui-label{font-size:8px;color:rgba(180,230,120,0.65);letter-spacing:.05em;white-space:nowrap;}
+.ui-value{font-size:13px;color:#c8f08a;font-weight:600;line-height:1;white-space:nowrap;}
+#ui-targets{display:flex;gap:10px;flex-wrap:nowrap;overflow-x:auto;max-width:55vw;}
+#ui-targets .ui-block{min-width:auto;}
+#canvas-wrap{
+  width:100%;flex:1;
+  display:flex;align-items:center;justify-content:center;
+  padding-top:48px;
+  position:fixed;inset:0;
+}
+canvas{display:block;touch-action:none;}
+
+/* ゲーム中のコントロール */
+#bark-btn{
+  position:fixed;bottom:160px;right:20px;
+  width:72px;height:72px;border-radius:50%;
+  background:linear-gradient(135deg,#8a4a18,#c07828);
+  border:3px solid rgba(255,220,120,0.5);
+  color:#fff;font-size:13px;font-family:'Klee One',cursive;
+  cursor:pointer;z-index:30;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+  display:none;
+}
+#bark-btn.cooling{opacity:0.5;}
+#joystick-zone{
+  position:fixed;bottom:24px;
+  left:50%;transform:translateX(-50%);
+  width:130px;height:130px;
+  display:none;z-index:20;touch-action:none;
+}
+#joystick-base{
+  width:130px;height:130px;border-radius:50%;
+  background:rgba(255,255,255,0.1);
+  border:2px solid rgba(255,255,255,0.25);
+  position:relative;
+}
+#joystick-knob{
+  width:56px;height:56px;border-radius:50%;
+  background:rgba(180,240,120,0.8);
+  border:2px solid rgba(255,255,255,0.4);
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  box-shadow:0 2px 12px rgba(0,0,0,0.3);
+}
+#hint{
+  position:fixed;bottom:12px;right:12px;
+  font-size:10px;color:rgba(180,230,120,0.4);
+  text-align:right;line-height:1.6;
+  pointer-events:none;z-index:10;
+}
+#bark-meter{
+  position:fixed;bottom:240px;right:22px;
+  width:68px;z-index:25;
+  text-align:center;font-size:9px;
+  color:rgba(255,220,140,0.7);
+  display:none;
+}
+#farmer-alert{
+  position:fixed;top:60px;left:50%;transform:translateX(-50%);
+  background:rgba(200,80,40,0.88);
+  color:#fff;padding:6px 14px;border-radius:20px;
+  font-size:12px;z-index:12;
+  display:none;letter-spacing:.05em;
+}
+
+/* ========== リザルト ========== */
+.result-card{
+  background:rgba(0,0,0,0.35);
+  border:1px solid rgba(180,230,120,0.25);
+  border-radius:14px;
+  padding:16px 20px;
+  width:min(340px,90vw);
+}
+.result-line{
+  display:flex;justify-content:space-between;
+  padding:6px 0;font-size:14px;
+  border-bottom:1px dashed rgba(120,200,80,0.15);
+}
+.result-line:last-child{border-bottom:none;}
+.result-line .status{font-weight:600;}
+.result-line .status.ok{color:#90e060;}
+.result-line .status.no{color:#e08060;}
+.result-verdict{
+  font-size:clamp(24px,7vw,40px);
+  text-align:center;
+  padding:14px 0;
+  letter-spacing:.1em;
+}
+.verdict-success{color:#f0e060;text-shadow:0 0 30px rgba(240,220,80,0.5);}
+.verdict-fail{color:#e07a60;text-shadow:0 0 20px rgba(220,100,60,0.4);}
+
+/* ========== デバッグ画面 ========== */
+#scene-debug{padding:0;}
+.debug-inner{
+  width:100%;max-width:900px;
+  height:100dvh;
+  display:flex;flex-direction:column;
+  padding:14px 12px;gap:10px;
+}
+.debug-header{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:10px;flex-wrap:wrap;
+}
+.debug-header h2{
+  font-size:18px;color:#d0f08c;letter-spacing:.06em;
+}
+.debug-toolbar{display:flex;gap:6px;flex-wrap:wrap;}
+.debug-toolbar .btn{padding:7px 14px;font-size:12px;}
+.debug-tabs{
+  display:flex;gap:2px;overflow-x:auto;
+  border-bottom:1px solid rgba(120,200,80,0.18);
+}
+.debug-tab{
+  padding:7px 12px;
+  background:rgba(40,70,40,0.3);
+  border:1px solid rgba(120,200,80,0.15);
+  border-bottom:none;
+  border-radius:8px 8px 0 0;
+  color:#a0d070;font-size:12px;
+  cursor:pointer;white-space:nowrap;
+  font-family:'Klee One',cursive;
+}
+.debug-tab.active{
+  background:rgba(90,160,56,0.35);
+  color:#fff;
+}
+.debug-body{
+  flex:1;overflow-y:auto;
+  background:rgba(0,0,0,0.25);
+  border-radius:0 0 10px 10px;
+  padding:10px;
+}
+.param-section{margin-bottom:16px;}
+.param-section h3{
+  font-size:13px;color:#c8f08a;
+  margin-bottom:6px;padding-bottom:4px;
+  border-bottom:1px dashed rgba(120,200,80,0.2);
+}
+.param-table{
+  width:100%;font-size:11px;
+  border-collapse:collapse;
+}
+.param-table th,.param-table td{
+  padding:3px 6px;text-align:left;
+  border-bottom:1px solid rgba(120,200,80,0.08);
+}
+.param-table th{
+  color:rgba(180,230,120,0.7);font-size:10px;
+  font-weight:normal;letter-spacing:.04em;
+}
+.param-table input{
+  width:60px;padding:2px 5px;font-size:11px;
+}
+.param-row-label{color:#d0e0a0;white-space:nowrap;}
+.small-note{
+  font-size:10px;color:rgba(180,230,120,0.5);
+  margin-bottom:4px;
+}
+
+/* スクロールバーのスタイル */
+.debug-body::-webkit-scrollbar{width:8px;}
+.debug-body::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);}
+.debug-body::-webkit-scrollbar-thumb{background:rgba(120,200,80,0.3);border-radius:4px;}
+
+.version-tag{
+  font-size:10px;
+  color:rgba(180,230,120,0.35);
+  margin-top:4px;
+}
+
+/* ミニ画面内オーバーレイ */
+.in-game-btn{
+  position:fixed;top:54px;right:8px;
+  width:38px;height:38px;border-radius:8px;
+  background:rgba(60,40,20,0.75);
+  border:1px solid rgba(180,150,80,0.4);
+  color:#e0d080;font-size:16px;
+  cursor:pointer;z-index:20;
+}
+</style>
+</head>
+<body>
+
+<!-- ========== メインメニュー ========== -->
+<div class="scene active" id="scene-menu">
+  <h1>🐑 ひつじあつめ</h1>
+  <p class="sub">牧羊犬になって、動物を柵に誘導しよう<br>正しい柵に目標数入れればクリア！</p>
+
+  <div class="panel">
+    <div class="panel-title">🎯 難易度</div>
+    <div class="diff-group" id="diff-group">
+      <button class="diff-btn active" data-diff="easy">易しい</button>
+      <button class="diff-btn" data-diff="mid">ふつう</button>
+      <button class="diff-btn" data-diff="hard">難しい</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">🔑 マルチプレイ (試験中)</div>
+    <div class="row">
+      <span>あなたのルームキー:</span>
+    </div>
+    <div class="room-key-display" id="room-key-mine">- - - - - - - -</div>
+    <div class="room-key-note">※このキーを友達に教えると一緒に遊べます (実装予定)</div>
+    <div class="row">
+      <span>参加する:</span>
+      <input type="text" id="room-key-join" maxlength="8" placeholder="8桁入力" style="width:110px;letter-spacing:.2em;">
+    </div>
+  </div>
+
+  <button class="btn" id="start-btn">はじめる</button>
+  <button class="btn ghost" id="to-debug-btn" style="font-size:12px;padding:7px 18px;">⚙ デバッグ画面</button>
+  <div class="version-tag">v0.9</div>
+</div>
+
+<!-- ========== 待機画面 ========== -->
+<div class="scene" id="scene-waiting">
+  <h1 id="wait-level">LEVEL 1</h1>
+  <p class="sub" id="wait-desc">犬のすがたを選んで、フィールドへ出発！</p>
+
+  <div class="dog-preview"><canvas id="dog-preview-canvas" width="160" height="160"></canvas></div>
+
+  <div class="panel">
+    <div class="panel-title">🎨 からだの色</div>
+    <div class="opt-row" id="dog-colors"></div>
+    <div class="panel-title" style="margin-top:4px;">👂 耳のかたち</div>
+    <div class="opt-row" id="dog-ears">
+      <button class="opt-btn active" data-ear="floppy">たれ耳</button>
+      <button class="opt-btn" data-ear="pointy">立ち耳</button>
+      <button class="opt-btn" data-ear="round">まる耳</button>
+    </div>
+    <div class="panel-title" style="margin-top:4px;">🏷 もよう</div>
+    <div class="opt-row" id="dog-patterns">
+      <button class="opt-btn active" data-pat="solid">むじ</button>
+      <button class="opt-btn" data-pat="spot">ぶち</button>
+      <button class="opt-btn" data-pat="belt">おび</button>
+      <button class="opt-btn" data-pat="stripe">しま</button>
+    </div>
+    <div class="panel-title" style="margin-top:4px;">📏 サイズ</div>
+    <div class="opt-row" id="dog-sizes">
+      <button class="opt-btn" data-sz="s">小</button>
+      <button class="opt-btn active" data-sz="m">中</button>
+      <button class="opt-btn" data-sz="l">大</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;">
+    <button class="btn secondary" id="back-to-menu-btn" style="padding:10px 18px;font-size:13px;">← 戻る</button>
+    <button class="btn" id="go-field-btn">GO FIELD →</button>
+  </div>
+  <button class="btn ghost" id="to-debug-btn2" style="font-size:12px;padding:6px 16px;">⚙ デバッグ画面</button>
+  <div class="version-tag">v0.9</div>
+</div>
+
+<!-- ========== ゲーム画面 ========== -->
+<div class="scene" id="scene-game" style="background:#1a2e1a;">
+  <div id="ui">
+    <div class="ui-block">
+      <div class="ui-label">LEVEL</div>
+      <div class="ui-value" id="ui-level">1</div>
+    </div>
+    <div id="ui-targets"></div>
+    <div class="ui-block">
+      <div class="ui-label">v0.9</div>
+      <div class="ui-value" style="font-size:10px;color:rgba(180,230,120,0.5);" id="ui-pos">-</div>
+    </div>
+  </div>
+  <div id="canvas-wrap"><canvas id="c"></canvas></div>
+  <button id="bark-btn">🐾<br>吠える</button>
+  <div id="bark-meter">吠え効果 <span id="bark-pct">100%</span></div>
+  <div id="joystick-zone">
+    <div id="joystick-base"><div id="joystick-knob"></div></div>
+  </div>
+  <div id="hint">WASD/矢印 移動　Space 吠える</div>
+  <div id="farmer-alert">牧場主の近く！ あと<span id="farmer-bark-count">3</span>回吠えるとゲーム終了</div>
+</div>
+
+<!-- ========== リザルト ========== -->
+<div class="scene" id="scene-result">
+  <h1 id="result-title">判定中</h1>
+  <div class="result-verdict" id="result-verdict"></div>
+  <div class="result-card" id="result-card"></div>
+  <div class="sub" id="result-sub"></div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn secondary" id="result-menu-btn" style="padding:10px 18px;font-size:13px;">メニュー</button>
+    <button class="btn" id="result-next-btn">次へ →</button>
+  </div>
+  <div class="version-tag">v0.9</div>
+</div>
+
+<!-- ========== デバッグ画面 ========== -->
+<div class="scene" id="scene-debug">
+  <div class="debug-inner">
+    <div class="debug-header">
+      <h2>⚙ デバッグ : ソーシャルフォース パラメーター</h2>
+      <div class="debug-toolbar">
+        <button class="btn ghost" id="dbg-load-default" style="padding:6px 12px;font-size:11px;">初期値</button>
+        <button class="btn secondary" id="dbg-save-json" style="padding:6px 12px;font-size:11px;">保存 (JSON)</button>
+        <input type="file" id="dbg-load-file" accept=".json,.csv" style="display:none;">
+        <button class="btn secondary" id="dbg-load-json" style="padding:6px 12px;font-size:11px;">読込</button>
+        <button class="btn" id="dbg-close" style="padding:6px 14px;font-size:12px;">← 戻る</button>
+      </div>
+    </div>
+    <div class="debug-tabs" id="debug-tabs"></div>
+    <div class="debug-body" id="debug-body">
+      <p class="small-note">係数は [最小値, 最大値] の範囲で入力。個体ごとにこの範囲の値がランダムに採用されます。<br>斥力は正の値、引力は負の値で表現します。影響範囲 (距離) も [最小, 最大] で個体差を持たせます。</p>
+      <div id="param-sections"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const VERSION='v0.9';
+
+// ============================================================
+//  エンティティ・ソーシャルフォース パラメータ定義
+// ============================================================
+// すべての係数は [min, max] 範囲で個体差を表現
+// 斥力=正, 引力=負, 影響範囲も [min, max]
+// ap*=相対速度ベースの反応, pr*=距離ベースの反応
+// flock*=同種引力, sep*=同種近距離斥力
+// 静止物への斥力: tree/hut/fence/forest/pond
+
+const DEFAULT_PARAMS = {
+  // ============== 動物 ==============
+  white_sheep: {
+    label:'白羊', group:'sheep', pen:'sheep', size:[9,12],
+    color:'#f2e8d2', bodyShade:'#c8b890',
+    maxSpeed:[240,300], inertia:[0.82,0.92], maxForce:[1200,1800],
+    waterSlow:0.5, avoidForest:true,
+    // 各エンティティタイプへの反応
+    react:{
+      dog:    {apS:[700,950], apR:[180,240], prS:[80,140], prR:[80,120]},
+      wolf:   {apS:[850,1100],apR:[220,280], prS:[120,200],prR:[120,160]},
+      sheep:  {flock:[-18,-26],flockR:[100,150],sep:[150,200],sepR:[20,32]},
+      goose:  {sep:[40,60],sepR:[22,30]},
+      chicken:{sep:[30,50],sepR:[20,28]},
+      cow:    {sep:[60,90],sepR:[25,40]},
+      pig:    {sep:[60,90],sepR:[25,40]},
+      tractor:{apS:[800,1100],apR:[180,240], prS:[200,300],prR:[100,140]},
+      truck:  {apS:[800,1100],apR:[180,240], prS:[200,300],prR:[100,140]},
+      farmer: {prS:[150,220],prR:[70,100]},
+    },
+    // ランダム目標への引力
+    goalAttract:[6,12], goalR:[300,400],
+    // ランダムウォーク
+    wander:[40,60], wanderTurn:[2.0,2.4],
+    // 静止物への反発
+    pond:{str:[200,350],range:[40,80]},
+    tree:{str:[260,340],range:[24,36]},
+    hut:{str:[300,380],range:[28,40]},
+    fence:{str:[400,500],range:[40,60]},
+    forest:{str:[600,900],range:[140,200]},
+  },
+  black_sheep: {
+    label:'黒羊', group:'sheep', pen:'sheep', size:[9,12],
+    color:'#2a2620', bodyShade:'#4a4238',
+    maxSpeed:[240,300], inertia:[0.82,0.92], maxForce:[1200,1800],
+    waterSlow:0.5, avoidForest:true,
+    react:'INHERIT:white_sheep',
+    goalAttract:[6,12], goalR:[300,400],
+    wander:[40,60], wanderTurn:[2.0,2.4],
+    pond:{str:[200,350],range:[40,80]}, tree:{str:[260,340],range:[24,36]},
+    hut:{str:[300,380],range:[28,40]}, fence:{str:[400,500],range:[40,60]},
+    forest:{str:[600,900],range:[140,200]},
+  },
+  bh_sheep: {
+    label:'頭黒羊', group:'sheep', pen:'sheep', size:[9,12],
+    color:'#f2e8d2', bodyShade:'#c8b890',
+    maxSpeed:[240,300], inertia:[0.82,0.92], maxForce:[1200,1800],
+    waterSlow:0.5, avoidForest:true,
+    react:'INHERIT:white_sheep',
+    goalAttract:[6,12], goalR:[300,400],
+    wander:[40,60], wanderTurn:[2.0,2.4],
+    pond:{str:[200,350],range:[40,80]}, tree:{str:[260,340],range:[24,36]},
+    hut:{str:[300,380],range:[28,40]}, fence:{str:[400,500],range:[40,60]},
+    forest:{str:[600,900],range:[140,200]},
+    blackHead:true,
+  },
+  goose: {
+    label:'ガチョウ', group:'goose', pen:'goose', size:[8,11],
+    color:'#f5f3e8', bodyShade:'#c4d0d8',
+    maxSpeed:[190,240], inertia:[0.76,0.86], maxForce:[1000,1600],
+    waterSlow:1.0, avoidForest:true,
+    react:{
+      dog:    {apS:[600,800], apR:[280,340], prS:[250,400],prR:[180,240]},
+      wolf:   {apS:[650,850], apR:[300,360], prS:[280,420],prR:[200,260]},
+      goose:  {flock:[-40,-60],flockR:[120,180],sep:[300,450],sepR:[45,70]},
+      sheep:  {sep:[180,260],sepR:[35,55]},
+      chicken:{sep:[160,220],sepR:[32,48]},
+      cow:    {sep:[220,300],sepR:[40,60]},
+      pig:    {sep:[220,300],sepR:[40,60]},
+      tractor:{apS:[700,950], apR:[200,260],prS:[200,300],prR:[110,150]},
+      truck:  {apS:[700,950], apR:[200,260],prS:[200,300],prR:[110,150]},
+      farmer: {prS:[150,220],prR:[70,100]},
+    },
+    goalAttract:[5,10], goalR:[280,380],
+    wander:[50,75], wanderTurn:[2.2,2.8],
+    // 池は引力
+    pond:{str:[-120,-180],range:[280,400]},
+    tree:{str:[260,340],range:[24,36]},
+    hut:{str:[300,380],range:[28,40]},
+    fence:{str:[400,500],range:[40,60]},
+    forest:{str:[600,900],range:[140,200]},
+  },
+  chicken: {
+    label:'鶏', group:'chicken', pen:'chicken', size:[5,7],
+    color:'#f2e8c0', bodyShade:'#d8c080',
+    maxSpeed:[180,250], inertia:[0.74,0.86], maxForce:[900,1500],
+    waterSlow:0.5, avoidForest:true,
+    react:{
+      dog:    {apS:[700,1000],apR:[220,300],prS:[200,320],prR:[140,200]},
+      wolf:   {apS:[800,1100],apR:[240,320],prS:[220,340],prR:[160,220]},
+      chicken:{flock:[-6,-12],flockR:[80,120],sep:[120,180],sepR:[15,25]},
+      sheep:  {sep:[180,260],sepR:[30,46]},
+      goose:  {sep:[180,260],sepR:[30,46]},
+      cow:    {sep:[240,320],sepR:[40,60]},
+      pig:    {sep:[240,320],sepR:[40,60]},
+      tractor:{apS:[800,1100],apR:[200,260],prS:[220,320],prR:[120,160]},
+      truck:  {apS:[800,1100],apR:[200,260],prS:[220,320],prR:[120,160]},
+      farmer: {prS:[120,180],prR:[60,90]},
+    },
+    goalAttract:[5,10], goalR:[240,340],
+    wander:[60,90], wanderTurn:[3.0,4.0],
+    pond:{str:[260,400],range:[40,80]},
+    tree:{str:[200,280],range:[18,28]},
+    hut:{str:[240,320],range:[22,34]},
+    fence:{str:[380,480],range:[40,60]},
+    forest:{str:[600,900],range:[140,200]},
+  },
+  cow: {
+    label:'牛', group:'cow', pen:'cow', size:[13,16],
+    color:'#f2f0e8', bodyShade:'#3a3228',
+    maxSpeed:[120,170], inertia:[0.88,0.94], maxForce:[1400,2000],
+    waterSlow:0.5, avoidForest:true,
+    react:{
+      dog:    {apS:[400,600], apR:[180,240],prS:[180,260],prR:[100,150]},
+      wolf:   {apS:[500,700], apR:[200,280],prS:[180,260],prR:[110,160]},
+      cow:    {flock:[-6,-12],flockR:[120,180],sep:[160,240],sepR:[35,55]},
+      sheep:  {sep:[100,160],sepR:[30,44]},
+      goose:  {sep:[80,120],sepR:[26,36]},
+      chicken:{sep:[80,120],sepR:[26,36]},
+      pig:    {sep:[140,200],sepR:[35,50]},
+      tractor:{apS:[600,850], apR:[180,240],prS:[220,320],prR:[120,160]},
+      truck:  {apS:[600,850], apR:[180,240],prS:[220,320],prR:[120,160]},
+      farmer: {prS:[100,160],prR:[60,90]},
+    },
+    goalAttract:[4,8], goalR:[250,380],
+    wander:[30,45], wanderTurn:[1.5,2.0],
+    pond:{str:[220,340],range:[50,90]},
+    tree:{str:[260,340],range:[28,42]},
+    hut:{str:[300,380],range:[32,46]},
+    fence:{str:[380,480],range:[44,64]},
+    forest:{str:[600,900],range:[150,210]},
+  },
+  pig: {
+    label:'豚', group:'pig', pen:'pig', size:[11,14],
+    color:'#f0c8c0', bodyShade:'#c89890',
+    maxSpeed:[160,220], inertia:[0.82,0.9], maxForce:[1400,2000],
+    waterSlow:0.5, avoidForest:true,
+    react:{
+      // 豚: 犬の接近に敏感だが、逆に追いかける (負の斥力)
+      dog:    {apS:[-300,-500],apR:[180,260],prS:[-60,-120],prR:[100,150]},
+      wolf:   {apS:[500,700], apR:[200,280],prS:[180,280],prR:[110,160]},
+      pig:    {sep:[80,140],sepR:[28,42]},  // 群れない
+      sheep:  {sep:[140,200],sepR:[30,44]},
+      goose:  {sep:[120,180],sepR:[28,40]},
+      chicken:{sep:[120,180],sepR:[28,40]},
+      cow:    {sep:[160,220],sepR:[36,50]},
+      tractor:{apS:[600,850], apR:[180,240],prS:[180,280],prR:[110,150]},
+      truck:  {apS:[600,850], apR:[180,240],prS:[180,280],prR:[110,150]},
+      farmer: {prS:[80,130],prR:[50,80]},
+    },
+    goalAttract:[5,10], goalR:[250,380],
+    wander:[50,75], wanderTurn:[2.3,3.0],
+    pond:{str:[0,0],range:[0,0]}, // 池を避けない
+    tree:{str:[240,320],range:[26,38]},
+    hut:{str:[280,360],range:[30,44]},
+    fence:{str:[380,480],range:[42,60]},
+    forest:{str:[600,900],range:[140,200]},
+  },
+
+  // ============== 狼 ==============
+  wolf: {
+    label:'狼', group:'wolf', pen:null, size:[14,17],
+    color:'#5a5448', bodyShade:'#3a342a',
+    maxSpeed:[260,320], inertia:[0.82,0.9], maxForce:[1600,2200],
+    waterSlow:0.6, avoidForest:false,  // 森は避けない
+    baseSpeed:[180,240], // 自走速度 (一定速度で動こうとする)
+    react:{
+      // 狼は動物を追いかける (引力)
+      sheep:  {apS:[-400,-600],apR:[400,600],prS:[-200,-350],prR:[300,450]},
+      goose:  {apS:[-200,-350],apR:[280,400],prS:[-100,-180],prR:[200,300]},
+      chicken:{apS:[-300,-450],apR:[300,450],prS:[-150,-240],prR:[220,320]},
+      cow:    {apS:[-100,-180],apR:[250,380],prS:[-60,-120], prR:[180,260]},
+      pig:    {apS:[-100,-180],apR:[250,380],prS:[-60,-120], prR:[180,260]},
+      // 犬からは逃げる
+      dog:    {apS:[1800,2400],apR:[420,520],prS:[800,1200],prR:[280,400]},
+      wolf:   {sep:[180,260],sepR:[40,60]},
+      tractor:{prS:[200,320],prR:[100,160]},
+      truck:  {prS:[200,320],prR:[100,160]},
+      farmer: {prS:[220,320],prR:[80,120]},
+    },
+    goalAttract:[0,0], goalR:[0,0],
+    wander:[20,35], wanderTurn:[0.8,1.4],
+    pond:{str:[180,300],range:[45,80]},
+    tree:{str:[240,320],range:[24,38]},
+    hut:{str:[280,360],range:[28,42]},
+    fence:{str:[360,460],range:[40,58]},
+    forest:{str:[0,0],range:[0,0]}, // 森を避けない
+  },
+
+  // ============== 犬 (プレイヤー) ==============
+  // 犬は入力で動くが、牛/豚の接近を受ける
+  dog: {
+    label:'犬', group:'dog', pen:null, size:[13,15],
+    color:'#c07828', bodyShade:'#9a5818',
+    maxSpeed:[260,260], inertia:[0,0], // 入力駆動
+    waterSlow:0.5, avoidForest:true,
+    react:{
+      cow: {apS:[400,600], apR:[140,200],prS:[80,140],prR:[70,100]},
+      pig: {apS:[500,700], apR:[140,200],prS:[80,140],prR:[70,100]},
+    },
+    goalAttract:[0,0], goalR:[0,0],
+    wander:[0,0], wanderTurn:[0,0],
+    pond:{str:[0,0],range:[0,0]},
+    tree:{str:[0,0],range:[0,0]},
+    hut:{str:[0,0],range:[0,0]},
+    fence:{str:[0,0],range:[0,0]},
+    forest:{str:[0,0],range:[0,0]},
+  },
+
+  // ============== 車両 ==============
+  tractor: {
+    label:'トラクター', group:'tractor', pen:null, size:[20,24],
+    color:'#6a9240', bodyShade:'#3a5420',
+    maxSpeed:[80,110], inertia:[0.95,0.97], // 慣性大
+    waterSlow:0.3, avoidForest:true,
+    maxForce:[260,340], // ソーシャルフォース上限
+    turnRate:1.0, // 旋回速度上限 rad/s
+    react:{
+      sheep:  {prS:[300,450],prR:[80,120]},
+      goose:  {prS:[300,450],prR:[80,120]},
+      chicken:{prS:[300,450],prR:[80,120]},
+      cow:    {prS:[350,500],prR:[100,140]},
+      pig:    {prS:[350,500],prR:[100,140]},
+      dog:    {prS:[200,350],prR:[80,120]},
+      wolf:   {prS:[100,180],prR:[60,90]},
+      tractor:{prS:[400,600],prR:[80,120]},
+      truck:  {prS:[400,600],prR:[80,120]},
+      farmer: {prS:[350,500],prR:[90,130]},
+    },
+    goalAttract:[30,50], goalR:[500,800],
+    wander:[10,20], wanderTurn:[0.6,1.0],
+    pond:{str:[500,700],range:[80,140]},
+    tree:{str:[500,700],range:[50,80]},
+    hut:{str:[600,800],range:[50,80]},
+    fence:{str:[600,800],range:[60,100]},
+    forest:{str:[700,1000],range:[180,240]},
+  },
+  truck: {
+    label:'トラック', group:'truck', pen:null, size:[18,22],
+    color:'#5080b0', bodyShade:'#304860',
+    maxSpeed:[110,150], inertia:[0.93,0.96],
+    waterSlow:0.3, avoidForest:true,
+    maxForce:[300,400], turnRate:1.2,
+    react:{
+      sheep:  {prS:[300,450],prR:[80,120]},
+      goose:  {prS:[300,450],prR:[80,120]},
+      chicken:{prS:[300,450],prR:[80,120]},
+      cow:    {prS:[350,500],prR:[100,140]},
+      pig:    {prS:[350,500],prR:[100,140]},
+      dog:    {prS:[200,350],prR:[80,120]},
+      wolf:   {prS:[100,180],prR:[60,90]},
+      tractor:{prS:[400,600],prR:[80,120]},
+      truck:  {prS:[400,600],prR:[80,120]},
+      farmer: {prS:[350,500],prR:[90,130]},
+    },
+    goalAttract:[40,60], goalR:[500,800],
+    wander:[10,20], wanderTurn:[0.6,1.0],
+    pond:{str:[500,700],range:[80,140]},
+    tree:{str:[500,700],range:[50,80]},
+    hut:{str:[600,800],range:[50,80]},
+    fence:{str:[600,800],range:[60,100]},
+    forest:{str:[700,1000],range:[180,240]},
+    stopNearFence:true, stopTime:[2,5],  // 小屋/柵の前で一時停止
+  },
+};
+
+// reactのINHERITを展開
+function resolveParams(P){
+  for(const k in P){
+    if(P[k].react==='string' || typeof P[k].react==='string'){
+      const src=P[k].react.split(':')[1];
+      P[k].react=JSON.parse(JSON.stringify(P[src].react));
+    }
+  }
+  return P;
+}
+
+// 実行時のアクティブパラメータ (デバッグ画面で変更可)
+let PARAMS = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+resolveParams(PARAMS);
+
+// ============================================================
+//  ゲーム状態
+// ============================================================
+const SCENE={ MENU:'menu', WAITING:'waiting', PLAYING:'game', RESULT:'result', DEBUG:'debug' };
+let scene = SCENE.MENU;
+
+const GAME = {
+  difficulty: 'easy',   // 'easy'|'mid'|'hard'
+  level: 1,
+  prevAchievement: 1.0, // 前レベルの達成率
+  prevTime: 0,          // 前レベルの達成時間 (秒)
+  roomKey: '',
+  levelStartTime: 0,
+};
+
+// 犬のカスタマイズ (待機画面で選択)
+const DOG_CUSTOM = {
+  color: '#c07828',
+  pattern: 'solid', // 'solid'|'spot'|'belt'|'stripe'
+  ear: 'floppy',   // 'floppy'|'pointy'|'round'
+  size: 'm',       // 's'|'m'|'l'
+};
+const DOG_COLORS=[
+  '#c07828','#e6b060','#8a4a18','#e0d0a0','#a05a30',
+  '#604038','#707070','#f0e8d0','#3a2a20','#d88038'
+];
+
+// ランタイム配列
+let FLD=1800, FC=900;
+let forestR=[];
+const FOREST_POINTS=256;
+
+let PENS=[], HUTS=[], FIELD_TREES=[], FIELD_PONDS=[];
+let ROADS=[];
+let FARMER=null;
+
+let ENTITIES=[];  // 統一管理: dog, wolves, animals, tractors, trucks
+let dog=null;
+
+let dogFaceAngle=Math.PI*0.5;
+let barkCooldown=0, barkEffect=1.0;
+let barks=[];
+let farmerNearBarks=0;  // 牧場主の近くで吠えた回数
+let groundSeeds=[];
+let totalT=0, lastTs=0;
+let gameStartTs=0;
+let camX=0, camY=0;
+
+// 入力
+const keys={};
+let mouseTarget=null;
+let joystickDX=0, joystickDY=0, joystickActive=false;
+
+// Canvas
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let CW=800, CH=800;
+const VIEW_WIDTH_W=700; // 仮想座標での画面表示幅
+
+function resize(){
+  const aw=window.innerWidth, ah=window.innerHeight-50;
+  const sz=Math.min(aw,ah,900);
+  CW=sz; CH=sz;
+  canvas.width=sz; canvas.height=sz;
+}
+function w2s(wx,wy){
+  return {
+    x:(wx-camX+VIEW_WIDTH_W/2)/VIEW_WIDTH_W*CW,
+    y:(wy-camY+VIEW_WIDTH_W/2)/VIEW_WIDTH_W*CH,
+  };
+}
+function wScale(){ return CW/VIEW_WIDTH_W; }
+function isVisible(wx,wy,m=100){
+  return wx>camX-VIEW_WIDTH_W/2-m && wx<camX+VIEW_WIDTH_W/2+m &&
+         wy>camY-VIEW_WIDTH_W/2-m && wy<camY+VIEW_WIDTH_W/2+m;
+}
+window.addEventListener('resize',resize);
+
+// ============================================================
+//  ユーティリティ
+// ============================================================
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function rndRange(arr){ return rnd(arr[0],arr[1]); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+function genRoomKey(){ let s=''; for(let i=0;i<8;i++)s+=Math.floor(Math.random()*10); return s; }
+function formatKey(k){ return k.match(/.{1,1}/g)?.join('-')||'-'; }
+
+
+// ============================================================
+//  シーン管理
+// ============================================================
+function showScene(s){
+  scene=s;
+  document.querySelectorAll('.scene').forEach(el=>el.classList.remove('active'));
+  document.getElementById('scene-'+s).classList.add('active');
+  if(s===SCENE.PLAYING){ resize(); }
+}
+
+// ============================================================
+//  森の生成 (v0.8ベース)
+// ============================================================
+function buildForest(){
+  forestR=[];
+  const baseR=FLD/2-140;
+  for(let i=0;i<FOREST_POINTS;i++){
+    const a=i/FOREST_POINTS*Math.PI*2;
+    let n=0;
+    n+=Math.sin(a*3+1.2)*0.12;
+    n+=Math.sin(a*5+2.4)*0.08;
+    n+=Math.sin(a*7+0.8)*0.05;
+    n+=Math.sin(a*11+3.1)*0.03;
+    n+=Math.sin(a*13+1.7)*0.02;
+    forestR.push(baseR*(1+n));
+  }
+}
+function inForest(x,y){
+  const dx=x-FC, dy=y-FC;
+  const a=Math.atan2(dy,dx);
+  const r=Math.hypot(dx,dy);
+  const idx=Math.round((a/(Math.PI*2)+1)*FOREST_POINTS)%FOREST_POINTS;
+  return r>forestR[idx];
+}
+function distToForest(x,y){
+  const dx=x-FC, dy=y-FC;
+  const a=Math.atan2(dy,dx);
+  const r=Math.hypot(dx,dy);
+  const idx=Math.round((a/(Math.PI*2)+1)*FOREST_POINTS)%FOREST_POINTS;
+  return forestR[idx]-r;
+}
+function forestRepulse(x,y,avoidDist){
+  const dx=x-FC, dy=y-FC;
+  const r=Math.hypot(dx,dy);
+  if(r<0.1) return {fx:0,fy:0};
+  const dist=distToForest(x,y);
+  if(dist>avoidDist) return {fx:0,fy:0};
+  const str=(1-Math.max(0,dist)/avoidDist);
+  return {fx:-dx/r*str, fy:-dy/r*str};
+}
+
+// ============================================================
+//  レベル設定
+// ============================================================
+// レベル→出現する動物種・数・狼頻度・障害物・フィールドサイズ
+function computeLevelSpec(){
+  const lv=GAME.level;
+  const diff=GAME.difficulty;
+
+  // --- 難易度モデル ---
+  // startOffset: 開始レベルのゲタ (難易度が高いほど初期レベルが高く始まる)
+  // progressMul: レベル上昇に伴う難度増加の倍率 (難易度が高いほど急勾配)
+  // baseMul: 基本量の全体倍率
+  const startOffset = diff==='easy'?0:(diff==='hard'?2:1);
+  const progressMul = diff==='easy'?0.55:(diff==='hard'?1.55:1.0);
+  const baseMul     = diff==='easy'?0.75:(diff==='hard'?1.35:1.0);
+  // 有効レベル (量の計算に使用する仮想レベル)
+  const effLv = startOffset + (lv-1) * progressMul;
+
+  // 前回実績による微調整 (自動難度調整)
+  let perfAdj = 1.0;
+  if(GAME.prevAchievement != null){
+    perfAdj = clamp(1.0 + (GAME.prevAchievement - 0.85) * 0.4, 0.8, 1.25);
+  }
+  const qty = baseMul * perfAdj; // 数量スケール
+
+  // フィールドサイズ: 有効レベルで線形拡大
+  const fieldSize = Math.round(1400 + effLv*120);
+
+  // --- 出現する動物の種類 (毎レベル、ランダムに組み合わせ変化) ---
+  // 白羊は必須。他は追加プールからランダム選出
+  const types=['white_sheep'];
+  const addPool=['black_sheep','bh_sheep','goose','chicken','cow','pig'];
+  // 追加種数: 有効レベルで増加
+  let addN = Math.round(clamp(effLv*0.6, 0, addPool.length));
+  if(diff==='hard' && lv>=1 && addN<1) addN=1;
+  // シャッフルして先頭 addN 個を選ぶ
+  const shuffled = addPool.slice();
+  for(let i=shuffled.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];
+  }
+  for(let i=0;i<addN;i++) types.push(shuffled[i]);
+
+  // 各種の数 (有効レベルベース)
+  const counts={};
+  types.forEach(t=>{
+    let base=0;
+    if(t==='white_sheep') base = 10 + effLv*3;
+    else if(t==='black_sheep') base = 4 + effLv*2;
+    else if(t==='bh_sheep')    base = 4 + effLv*2;
+    else if(t==='goose')       base = 5 + effLv*2;
+    else if(t==='chicken')     base = 6 + effLv*2.2;
+    else if(t==='cow')         base = 3 + effLv*1.4;
+    else if(t==='pig')         base = 2 + effLv*1.2;
+    counts[t]=Math.max(1, Math.round(base * qty));
+  });
+
+  // 目標達成率
+  let successRate = diff==='easy'?0.75 : (diff==='mid'?0.8 : 0.85);
+  successRate = clamp(successRate + (GAME.prevAchievement-0.85)*0.1, 0.6, 0.95);
+  if(GAME.prevTime>0 && GAME.prevTime<60 && GAME.prevAchievement>=0.85)
+    successRate = Math.min(0.95, successRate+0.05);
+
+  // 狼の出現頻度 (平均間隔秒) — 有効レベルで短く
+  const wolfInterval = Math.max(6, 30 - effLv*2.2);
+  const wolfMaxConcurrent = 1 + Math.floor(effLv*0.45);
+
+  // 車両数
+  let nTractor = Math.min(3, Math.floor(effLv*0.45));
+  let nTruck   = Math.min(3, Math.floor(Math.max(0,effLv-0.8)*0.45));
+  if(diff==='hard' && lv>=1) nTractor = Math.max(nTractor, 1);
+
+  // 障害物
+  const huts  = Math.round(4 + effLv*1.4);
+  const trees = Math.round(18 + effLv*4);
+  const ponds = Math.max(2, Math.round(2 + effLv*0.5));
+
+  return {
+    fieldSize, types, counts, successRate,
+    wolfInterval, wolfMaxConcurrent,
+    nTractor, nTruck, huts, trees, ponds,
+    effLv, progressMul, // デバッグ用
+  };
+}
+
+// ============================================================
+//  フィールド構築 (柵, 小屋, 池, 木, 道, 牧場主)
+// ============================================================
+let LEVEL_SPEC=null;
+
+function buildField(){
+  const inner=140+80;
+  const outer=FLD-inner;
+  function randPos(margin=300){
+    for(let t=0;t<100;t++){
+      const x=inner+Math.random()*(outer-inner);
+      const y=inner+Math.random()*(outer-inner);
+      if(!inForest(x,y) && distToForest(x,y)>margin) return {x,y};
+    }
+    return {x:FLD/2, y:FLD/2};
+  }
+
+  // 出現する動物の pen グループを集めて柵を作る
+  const penTypes = [...new Set(LEVEL_SPEC.types.map(t=>PARAMS[t].pen))];
+  PENS=[];
+  const penW=200, penH=200;
+  const dirs=['left','right','top','bottom'];
+  penTypes.forEach(pt=>{
+    let px=0, py=0, ok=false;
+    for(let t=0;t<400;t++){
+      const p=randPos(350);
+      px=p.x; py=p.y;
+      ok=PENS.every(ep=>Math.hypot(px-ep.x-ep.w/2,py-ep.y-ep.h/2)>penW*1.6+150);
+      if(ok) break;
+    }
+    const d=pick(dirs);
+    const pen={x:px-penW/2, y:py-penH/2, w:penW, h:penH, dir:d, type:pt};
+    const op=80;
+    if(d==='left')   pen.opening={wall:'left',  y:py-op/2, h:op};
+    if(d==='right')  pen.opening={wall:'right', y:py-op/2, h:op};
+    if(d==='top')    pen.opening={wall:'top',   x:px-op/2, w:op};
+    if(d==='bottom') pen.opening={wall:'bottom',x:px-op/2, w:op};
+    PENS.push(pen);
+  });
+
+  FARMER={x:0,y:0};
+  const fp=randPos(280);
+  FARMER.x=fp.x; FARMER.y=fp.y;
+
+  // 柵, 牧場主との距離チェック
+  function clearOfPensAndFarmer(x,y,margin){
+    const okP=PENS.every(pen=>{
+      const cx=pen.x+pen.w/2, cy=pen.y+pen.h/2;
+      return Math.hypot(x-cx,y-cy)>Math.max(pen.w,pen.h)/2+margin;
+    });
+    const okF=!FARMER || Math.hypot(x-FARMER.x,y-FARMER.y)>80+margin;
+    return okP && okF;
+  }
+
+  // 小屋 (上面図, 形状バラつき)
+  HUTS=[];
+  const hutDirs=['N','S','E','W'];
+  for(let i=0;i<LEVEL_SPEC.huts;i++){
+    for(let t=0;t<80;t++){
+      const p=randPos(150);
+      const d=pick(hutDirs);
+      const isNS=(d==='N'||d==='S');
+      const hw=isNS?(50+Math.random()*30):(70+Math.random()*50);
+      const hh=isNS?(70+Math.random()*50):(50+Math.random()*30);
+      const style = pick(['hut','house']); // 小屋 or 民家
+      const clearR=Math.max(hw,hh)/2;
+      if(clearOfPensAndFarmer(p.x,p.y,clearR+80) &&
+         HUTS.every(h=>Math.hypot(p.x-h.cx,p.y-h.cy)>Math.max(h.w,h.h)/2+clearR+30)){
+        HUTS.push({x:p.x-hw/2,y:p.y-hh/2,w:hw,h:hh,cx:p.x,cy:p.y,dir:d,style});
+        break;
+      }
+    }
+  }
+
+  // 池
+  FIELD_PONDS=[];
+  for(let i=0;i<LEVEL_SPEC.ponds;i++){
+    for(let t=0;t<80;t++){
+      const p=randPos(200);
+      const rx=46+Math.random()*34, ry=30+Math.random()*22;
+      if(clearOfPensAndFarmer(p.x,p.y,rx+100) &&
+         HUTS.every(h=>Math.hypot(p.x-h.cx,p.y-h.cy)>Math.max(h.w,h.h)/2+rx+30) &&
+         FIELD_PONDS.every(po=>Math.hypot(p.x-po.x,p.y-po.y)>po.rx+rx+60)){
+        FIELD_PONDS.push({x:p.x,y:p.y,rx,ry});
+        break;
+      }
+    }
+  }
+
+  // 木
+  FIELD_TREES=[];
+  for(let i=0;i<LEVEL_SPEC.trees;i++){
+    for(let t=0;t<60;t++){
+      const p=randPos(80);
+      const r=12+Math.floor(Math.random()*14);
+      if(clearOfPensAndFarmer(p.x,p.y,r+80) &&
+         HUTS.every(h=>Math.hypot(p.x-h.cx,p.y-h.cy)>Math.max(h.w,h.h)/2+r+20) &&
+         FIELD_PONDS.every(po=>Math.hypot(p.x-po.x,p.y-po.y)>po.rx+r+20) &&
+         FIELD_TREES.every(tr=>Math.hypot(p.x-tr.x,p.y-tr.y)>tr.r+r+14)){
+        FIELD_TREES.push({x:p.x,y:p.y,r,kind:pick(['round','tall'])});
+        break;
+      }
+    }
+  }
+
+  // 地面テクスチャ
+  groundSeeds=[];
+  for(let i=0;i<240;i++){
+    groundSeeds.push({
+      x:Math.random()*FLD, y:Math.random()*FLD,
+      type:Math.floor(Math.random()*4), r:8+Math.random()*18,
+    });
+  }
+}
+
+// ============================================================
+//  柵ユーティリティ
+// ============================================================
+function inPenBounds(pen,x,y){
+  return x>pen.x && x<pen.x+pen.w && y>pen.y && y<pen.y+pen.h;
+}
+function penWalls(pen){
+  const {x,y,w,h,opening:op}=pen;
+  const walls=[];
+  const full=[
+    {x1:x,   y1:y,   x2:x+w, y2:y,   nx:0,  ny:-1, side:'top'},
+    {x1:x,   y1:y+h, x2:x+w, y2:y+h, nx:0,  ny:1,  side:'bottom'},
+    {x1:x,   y1:y,   x2:x,   y2:y+h, nx:-1, ny:0,  side:'left'},
+    {x1:x+w, y1:y,   x2:x+w, y2:y+h, nx:1,  ny:0,  side:'right'},
+  ];
+  full.forEach(w=>{
+    if(w.side===op.wall){
+      if(op.wall==='left'||op.wall==='right'){
+        if(op.y>y)        walls.push({...w,y1:w.y1,y2:op.y});
+        if(op.y+op.h<y+h) walls.push({...w,y1:op.y+op.h,y2:w.y2});
+      } else {
+        if(op.x>x)        walls.push({...w,x1:w.x1,x2:op.x});
+        if(op.x+op.w<x+w) walls.push({...w,x1:op.x+op.w,x2:w.x2});
+      }
+    } else walls.push(w);
+  });
+  return walls;
+}
+
+// 動物/車両は柵の外壁を通れない。ただし開口部は動物のみ通過可。
+// これを表現する: 壁反発(力)+ハード衝突補正
+function penWallForce(pen,sx,sy,isVehicle){
+  let fx=0,fy=0;
+  const WR=40, WS=500;
+  const op=pen.opening;
+  function atOpeningFor(wall){
+    if(op.wall!==wall) return false;
+    if(wall==='left'||wall==='right') return sy>op.y&&sy<op.y+op.h;
+    return sx>op.x&&sx<op.x+op.w;
+  }
+  const inside=inPenBounds(pen,sx,sy);
+  if(inside){
+    const dL=sx-pen.x, dR=pen.x+pen.w-sx;
+    const dT=sy-pen.y, dB=pen.y+pen.h-sy;
+    // 車両は開口部も通さない
+    if(dL<WR && (isVehicle||!atOpeningFor('left')))  fx+=WS*(1-dL/WR);
+    if(dR<WR && (isVehicle||!atOpeningFor('right'))) fx-=WS*(1-dR/WR);
+    if(dT<WR && (isVehicle||!atOpeningFor('top')))   fy+=WS*(1-dT/WR);
+    if(dB<WR && (isVehicle||!atOpeningFor('bottom')))fy-=WS*(1-dB/WR);
+  } else {
+    const walls=isVehicle?
+      [
+        {x1:pen.x,y1:pen.y,x2:pen.x+pen.w,y2:pen.y,nx:0,ny:-1},
+        {x1:pen.x,y1:pen.y+pen.h,x2:pen.x+pen.w,y2:pen.y+pen.h,nx:0,ny:1},
+        {x1:pen.x,y1:pen.y,x2:pen.x,y2:pen.y+pen.h,nx:-1,ny:0},
+        {x1:pen.x+pen.w,y1:pen.y,x2:pen.x+pen.w,y2:pen.y+pen.h,nx:1,ny:0},
+      ]:penWalls(pen);
+    walls.forEach(w=>{
+      if(w.x1===w.x2){
+        const onSeg=sy>Math.min(w.y1,w.y2)-WR&&sy<Math.max(w.y1,w.y2)+WR;
+        if(onSeg){ const d=Math.abs(sx-w.x1); if(d<WR) fx-=w.nx*WS*(1-d/WR); }
+      } else {
+        const onSeg=sx>Math.min(w.x1,w.x2)-WR&&sx<Math.max(w.x1,w.x2)+WR;
+        if(onSeg){ const d=Math.abs(sy-w.y1); if(d<WR) fy-=w.ny*WS*(1-d/WR); }
+      }
+    });
+  }
+  return {fx,fy};
+}
+function penHardCollision(pen,ax,ay,avx,avy,R,isVehicle){
+  let x=ax,y=ay,vx=avx,vy=avy;
+  const op=pen.opening;
+  function atOp(wall){
+    if(isVehicle) return false; // 車両は開口部も通れない
+    if(op.wall!==wall) return false;
+    if(wall==='left'||wall==='right') return y>op.y-R&&y<op.y+op.h+R;
+    return x>op.x-R&&x<op.x+op.w+R;
+  }
+  const inside=inPenBounds(pen,x,y);
+  if(inside){
+    if(!atOp('right') && x>pen.x+pen.w-R){x=pen.x+pen.w-R; if(vx>0)vx*=-0.3;}
+    if(!atOp('left')  && x<pen.x+R)      {x=pen.x+R;        if(vx<0)vx*=-0.3;}
+    if(!atOp('bottom')&& y>pen.y+pen.h-R){y=pen.y+pen.h-R;  if(vy>0)vy*=-0.3;}
+    if(!atOp('top')   && y<pen.y+R)      {y=pen.y+R;         if(vy<0)vy*=-0.3;}
+  } else {
+    const inXR=x>pen.x-R&&x<pen.x+pen.w+R;
+    const inYR=y>pen.y-R&&y<pen.y+pen.h+R;
+    if(!atOp('left')  &&inYR&&x>pen.x-R&&x<pen.x+R)               {x=pen.x-R;        if(vx>0)vx*=-0.3;}
+    if(!atOp('right') &&inYR&&x>pen.x+pen.w-R&&x<pen.x+pen.w+R)   {x=pen.x+pen.w+R;  if(vx<0)vx*=-0.3;}
+    if(!atOp('top')   &&inXR&&y>pen.y-R&&y<pen.y+R)                {y=pen.y-R;        if(vy>0)vy*=-0.3;}
+    if(!atOp('bottom')&&inXR&&y>pen.y+pen.h-R&&y<pen.y+pen.h+R)    {y=pen.y+pen.h+R;  if(vy<0)vy*=-0.3;}
+  }
+  return {x,y,vx,vy};
+}
+
+
+// ============================================================
+//  エンティティ生成
+// ============================================================
+function makeEntity(typeKey, x, y){
+  const P=PARAMS[typeKey];
+  const e = {
+    type: typeKey,
+    x, y, vx:0, vy:0,
+    // 個体固有パラメータ
+    maxSpeed: rndRange(P.maxSpeed),
+    inertia: rndRange(P.inertia),
+    size: Array.isArray(P.size) ? rndRange(P.size) : P.size,
+    maxForce: P.maxForce ? (Array.isArray(P.maxForce) ? rndRange(P.maxForce) : P.maxForce) : 0,
+    wanderStr: rndRange(P.wander),
+    wanderTurn: rndRange(P.wanderTurn),
+    goalStr: rndRange(P.goalAttract),
+    goalR: rndRange(P.goalR),
+    pondStr: rndRange(P.pond.str),
+    pondRange: rndRange(P.pond.range),
+    treeStr: rndRange(P.tree.str),
+    treeRange: rndRange(P.tree.range),
+    hutStr: rndRange(P.hut.str),
+    hutRange: rndRange(P.hut.range),
+    fenceStr: rndRange(P.fence.str),
+    fenceRange: rndRange(P.fence.range),
+    forestStr: rndRange(P.forest.str),
+    forestRange: rndRange(P.forest.range),
+    wanderAngle: Math.random()*Math.PI*2,
+    eyeDir: Math.random()*Math.PI*2,
+    fo: Math.random()*60,
+    // 個体のreact係数を固定
+    reactCoef: {},
+    // ランダム目標
+    goal: {x:x,y:y, updateAt: totalT + rnd(1,10)},
+    // 模様バリエーション
+    variant: Math.floor(Math.random()*3),
+    woolPhase: Math.random()*Math.PI*2,
+    // 狼用
+    everLeftForest: false, inForestTimer: 0,
+    baseSpeed: P.baseSpeed? rndRange(P.baseSpeed):0,
+    // 車両用
+    heading: Math.random()*Math.PI*2,
+    stopUntil: 0,
+  };
+  // reactの各項を個体に固定
+  for(const otherT in P.react){
+    const r=P.react[otherT];
+    const coef={};
+    for(const k in r){
+      if(Array.isArray(r[k])) coef[k]=rndRange(r[k]);
+      else coef[k]=r[k];
+    }
+    e.reactCoef[otherT]=coef;
+  }
+  return e;
+}
+
+// エンティティの "reactキー" を取得 (sheepグループはsheepとしてまとめる)
+function reactKey(e){
+  return PARAMS[e.type].group;
+}
+
+// ランダム目標位置を選ぶ
+function pickRandomGoal(e){
+  const P=PARAMS[e.type];
+  const inner=160, outer=FLD-160;
+  for(let t=0;t<60;t++){
+    const gx=inner+Math.random()*(outer-inner);
+    const gy=inner+Math.random()*(outer-inner);
+    if(inForest(gx,gy)) continue;
+    // 車両は池を目標にしない
+    if((e.type==='tractor'||e.type==='truck') &&
+       FIELD_PONDS.some(p=>Math.hypot(gx-p.x,gy-p.y)<p.rx+30)) continue;
+    // 森の中は目標にしない
+    if(distToForest(gx,gy)<60) continue;
+    return {x:gx, y:gy};
+  }
+  return {x:FC, y:FC};
+}
+function updateGoalIfNeeded(e){
+  if(totalT >= e.goal.updateAt){
+    e.goal = pickRandomGoal(e);
+    e.goal.updateAt = totalT + rnd(10, 120);
+  }
+}
+
+// ============================================================
+//  ゲーム開始 (待機画面 → プレイ)
+// ============================================================
+function startLevel(){
+  LEVEL_SPEC = computeLevelSpec();
+  FLD = LEVEL_SPEC.fieldSize;
+  FC = FLD/2;
+  buildForest();
+  buildField();
+
+  // 犬
+  dog = makeEntity('dog', FC, FC);
+  // 犬の表示カスタマイズ情報を適用
+  dog.custom = {...DOG_CUSTOM};
+  dogFaceAngle = Math.PI*0.5;
+  camX=FC; camY=FC;
+
+  ENTITIES = [dog];
+
+  // 各動物タイプの個体を生成
+  LEVEL_SPEC.types.forEach(t=>{
+    const n=LEVEL_SPEC.counts[t];
+    for(let i=0;i<n;i++){
+      let ax=FC, ay=FC;
+      for(let t2=0;t2<200;t2++){
+        ax=180+Math.random()*(FLD-360);
+        ay=180+Math.random()*(FLD-360);
+        if(!inForest(ax,ay) && distToForest(ax,ay)>120 &&
+           FIELD_PONDS.every(p=>Math.hypot(ax-p.x,ay-p.y)>p.rx+40) &&
+           FIELD_TREES.every(tr=>Math.hypot(ax-tr.x,ay-tr.y)>tr.r+20) &&
+           HUTS.every(h=>ax<h.x-10||ax>h.x+h.w+10||ay<h.y-10||ay>h.y+h.h+10) &&
+           PENS.every(pen=>!inPenBounds(pen,ax,ay)) &&
+           (!FARMER || Math.hypot(ax-FARMER.x,ay-FARMER.y)>80)) break;
+      }
+      ENTITIES.push(makeEntity(t, ax, ay));
+    }
+  });
+
+  // トラクター/トラック
+  for(let i=0;i<LEVEL_SPEC.nTractor;i++){
+    let ax,ay;
+    for(let t=0;t<100;t++){
+      ax=200+Math.random()*(FLD-400);
+      ay=200+Math.random()*(FLD-400);
+      if(!inForest(ax,ay) && distToForest(ax,ay)>150 &&
+         FIELD_PONDS.every(p=>Math.hypot(ax-p.x,ay-p.y)>p.rx+60) &&
+         HUTS.every(h=>Math.hypot(ax-h.cx,ay-h.cy)>Math.max(h.w,h.h)/2+50) &&
+         PENS.every(pen=>!inPenBounds(pen,ax,ay) &&
+           Math.hypot(ax-pen.x-pen.w/2,ay-pen.y-pen.h/2)>pen.w/2+60)) break;
+    }
+    const t=makeEntity('tractor', ax||FC, ay||FC);
+    ENTITIES.push(t);
+  }
+  for(let i=0;i<LEVEL_SPEC.nTruck;i++){
+    let ax,ay;
+    for(let t=0;t<100;t++){
+      ax=200+Math.random()*(FLD-400);
+      ay=200+Math.random()*(FLD-400);
+      if(!inForest(ax,ay) && distToForest(ax,ay)>150 &&
+         FIELD_PONDS.every(p=>Math.hypot(ax-p.x,ay-p.y)>p.rx+60) &&
+         HUTS.every(h=>Math.hypot(ax-h.cx,ay-h.cy)>Math.max(h.w,h.h)/2+50) &&
+         PENS.every(pen=>!inPenBounds(pen,ax,ay) &&
+           Math.hypot(ax-pen.x-pen.w/2,ay-pen.y-pen.h/2)>pen.w/2+60)) break;
+    }
+    ENTITIES.push(makeEntity('truck', ax||FC, ay||FC));
+  }
+
+  // 狼スポーンタイマー
+  GAME.nextWolfSpawn = totalT + rnd(3, LEVEL_SPEC.wolfInterval);
+  GAME.levelStartTime = totalT;
+  barkCooldown=0; barkEffect=1.0; barks=[];
+  farmerNearBarks=0;
+  updateHUDTargets();
+  showScene(SCENE.PLAYING);
+}
+
+function spawnWolf(){
+  const baseR = FLD/2-140;
+  const ang = Math.random()*Math.PI*2;
+  // 森の内側縁からスポーン
+  const idx=Math.round((ang/(Math.PI*2)+1)*FOREST_POINTS)%FOREST_POINTS;
+  const r = forestR[idx] + 20;
+  const wx=FC+Math.cos(ang)*r;
+  const wy=FC+Math.sin(ang)*r;
+  const w = makeEntity('wolf', wx, wy);
+  w.eyeDir = Math.atan2(FC-wy, FC-wx);
+  ENTITIES.push(w);
+}
+
+// ============================================================
+//  ソーシャルフォース計算 (統一)
+// ============================================================
+function computeForces(e, dt){
+  const P = PARAMS[e.type];
+  let fx=0, fy=0;
+
+  // ---- 他エンティティへの反応 ----
+  ENTITIES.forEach(o=>{
+    if(o===e) return;
+    const k = reactKey(o);
+    const rc = e.reactCoef[k];
+    if(!rc) return;
+    const dx=e.x-o.x, dy=e.y-o.y, d=Math.hypot(dx,dy);
+    if(d<0.1) return;
+    const ux=dx/d, uy=dy/d;
+
+    // 相対速度ベース (apS, apR): oが近づいてくる速度で反応
+    if(rc.apS && rc.apR){
+      if(d<rc.apR){
+        const relVx=o.vx-e.vx, relVy=o.vy-e.vy;
+        // oの速度のうち、e方向への成分 (内積)
+        const app = -(relVx*ux+relVy*uy); // oがe方向に来ている=正
+        const rf = Math.max(0, app)/80;
+        const df = 1-d/rc.apR;
+        fx += ux*rc.apS*rf*df;
+        fy += uy*rc.apS*rf*df;
+      }
+    }
+    // 距離ベース (prS, prR): 単純な距離反発/引力
+    if(rc.prS && rc.prR){
+      if(d<rc.prR){
+        const df = 1-d/rc.prR;
+        fx += ux*rc.prS*df;
+        fy += uy*rc.prS*df;
+      }
+    }
+    // 同種群れ引力 (flock, flockR): 負の値が引力
+    if(rc.flock && rc.flockR){
+      if(d<rc.flockR){
+        const df = 1-d/rc.flockR;
+        // 引力なので e→oの方向 (-ux, -uy)
+        fx += (-ux)*(-rc.flock)*df;  // flockが負なら引力
+        fy += (-uy)*(-rc.flock)*df;
+      }
+    }
+    // 同種・近距離斥力 (sep, sepR)
+    if(rc.sep && rc.sepR){
+      if(d<rc.sepR){
+        const df = 1-d/rc.sepR;
+        fx += ux*rc.sep*df;
+        fy += uy*rc.sep*df;
+      }
+    }
+  });
+
+  // ---- 牧場主 (FARMER) への反応 ----
+  if(FARMER && e.reactCoef.farmer){
+    const dx=e.x-FARMER.x, dy=e.y-FARMER.y, d=Math.hypot(dx,dy);
+    if(d>0.1){
+      const rc=e.reactCoef.farmer;
+      if(rc.prS && rc.prR && d<rc.prR){
+        const df=1-d/rc.prR;
+        fx += dx/d*rc.prS*df; fy += dy/d*rc.prS*df;
+      }
+    }
+  }
+
+  // ---- 静止物への反発 ----
+  // 木
+  FIELD_TREES.forEach(t=>{
+    const dx=e.x-t.x, dy=e.y-t.y, d=Math.hypot(dx,dy);
+    const mx=t.r + e.size + e.treeRange;
+    if(d<mx && d>0.1){
+      const df=1-d/mx;
+      fx += dx/d*e.treeStr*df;
+      fy += dy/d*e.treeStr*df;
+    }
+  });
+  // 小屋
+  HUTS.forEach(h=>{
+    const cx=h.cx, cy=h.cy;
+    const dx=e.x-cx, dy=e.y-cy, d=Math.hypot(dx,dy);
+    const mx=Math.max(h.w,h.h)/2 + e.size + e.hutRange;
+    if(d<mx && d>0.1){
+      const df=1-d/mx;
+      fx += dx/d*e.hutStr*df;
+      fy += dy/d*e.hutStr*df;
+    }
+  });
+  // 池
+  FIELD_PONDS.forEach(p=>{
+    const dx=e.x-p.x, dy=e.y-p.y;
+    const normD = Math.hypot(dx/p.rx, dy/p.ry); // 楕円正規化距離
+    // 外側の端=1, 中心=0
+    if(e.pondStr > 0){
+      // 斥力: normD<1は中, 外側
+      if(normD < 1 + e.pondRange/p.rx){
+        const df = Math.max(0, 1 - Math.max(0, normD-1)*p.rx/e.pondRange);
+        const d = Math.hypot(dx,dy)||0.1;
+        fx += dx/d*e.pondStr*df;
+        fy += dy/d*e.pondStr*df;
+      }
+    } else if(e.pondStr < 0){
+      // 引力 (ガチョウ): 範囲内なら池中心へ
+      if(normD < 1 + e.pondRange/p.rx){
+        const df = Math.min(1, e.pondRange/p.rx / Math.max(0.1, normD-0.5));
+        const d = Math.hypot(dx,dy)||0.1;
+        fx += -dx/d*(-e.pondStr)*df;
+        fy += -dy/d*(-e.pondStr)*df;
+      }
+    }
+  });
+  // 柵
+  PENS.forEach(pen=>{
+    const isVeh = (e.type==='tractor'||e.type==='truck');
+    const pf = penWallForce(pen, e.x, e.y, isVeh);
+    fx += pf.fx * (e.fenceStr/500);
+    fy += pf.fy * (e.fenceStr/500);
+  });
+  // 森
+  if(P.avoidForest !== false){
+    const fr = forestRepulse(e.x, e.y, e.forestRange);
+    fx += fr.fx * e.forestStr;
+    fy += fr.fy * e.forestStr;
+  }
+
+  // ---- ランダム目標への引力 ----
+  if(e.goalStr > 0){
+    const dx=e.goal.x-e.x, dy=e.goal.y-e.y, d=Math.hypot(dx,dy);
+    if(d>10 && d<e.goalR){
+      const df = Math.min(1, d/e.goalR);
+      fx += dx/d*e.goalStr*df;
+      fy += dy/d*e.goalStr*df;
+    }
+  }
+
+  // ---- ランダムウォーク ----
+  if(e.wanderStr > 0){
+    e.wanderAngle += (Math.random()-0.5)*e.wanderTurn*dt;
+    fx += Math.cos(e.wanderAngle)*e.wanderStr;
+    fy += Math.sin(e.wanderAngle)*e.wanderStr;
+  }
+
+  // ---- 狼: 一定速度で動こうとする ----
+  if(e.type==='wolf' && e.baseSpeed){
+    const spd=Math.hypot(e.vx,e.vy);
+    if(spd<0.1){
+      const ang=Math.random()*Math.PI*2;
+      fx += Math.cos(ang)*e.baseSpeed*2;
+      fy += Math.sin(ang)*e.baseSpeed*2;
+    } else {
+      const diff=e.baseSpeed-spd;
+      fx += (e.vx/spd)*diff*3;
+      fy += (e.vy/spd)*diff*3;
+    }
+  }
+
+  // ---- ソーシャルフォース上限 (個体固有) ----
+  if(e.maxForce && e.maxForce > 0){
+    const fmag = Math.hypot(fx,fy);
+    if(fmag > e.maxForce){
+      fx = fx/fmag*e.maxForce;
+      fy = fy/fmag*e.maxForce;
+    }
+  }
+
+  return {fx, fy};
+}
+
+// ============================================================
+//  エンティティ更新
+// ============================================================
+function updateEntity(e, dt){
+  if(e.type==='dog') return; // 犬は別処理
+
+  updateGoalIfNeeded(e);
+
+  // 狼: 森の中で2秒経過 → 消す
+  if(e.type==='wolf'){
+    const inF=inForest(e.x,e.y);
+    if(e.everLeftForest && inF){
+      e.inForestTimer += dt;
+      if(e.inForestTimer >= 2.0){
+        e._remove=true; return;
+      }
+    } else {
+      e.inForestTimer = 0;
+    }
+    if(!inF) e.everLeftForest = true;
+  }
+
+  // 車両: 停止中なら力を無視
+  if((e.type==='tractor'||e.type==='truck') && e.stopUntil > totalT){
+    e.vx *= 0.85; e.vy *= 0.85;
+    e.x += e.vx*dt; e.y += e.vy*dt;
+    if(Math.hypot(e.vx,e.vy)>4) e.eyeDir = Math.atan2(e.vy,e.vx);
+    return;
+  }
+
+  const {fx, fy} = computeForces(e, dt);
+
+  // 速度更新
+  const INERTIA = e.inertia;
+  e.vx = e.vx*INERTIA + fx*dt;
+  e.vy = e.vy*INERTIA + fy*dt;
+
+  // 車両は旋回速度制限
+  const P=PARAMS[e.type];
+  if(P.turnRate){
+    const curAng = e.heading !== undefined ? e.heading : Math.atan2(e.vy, e.vx);
+    const targetAng = Math.atan2(e.vy, e.vx);
+    let diff = targetAng - curAng;
+    while(diff > Math.PI) diff -= Math.PI*2;
+    while(diff < -Math.PI) diff += Math.PI*2;
+    const maxTurn = P.turnRate * dt;
+    const newAng = curAng + clamp(diff, -maxTurn, maxTurn);
+    e.heading = newAng;
+    const spd = Math.hypot(e.vx, e.vy);
+    e.vx = Math.cos(newAng) * spd;
+    e.vy = Math.sin(newAng) * spd;
+  }
+
+  // 最大速度
+  const spd = Math.hypot(e.vx, e.vy);
+  if(spd > e.maxSpeed){ e.vx = e.vx/spd*e.maxSpeed; e.vy = e.vy/spd*e.maxSpeed; }
+
+  // 池の中で減速
+  const inPond = FIELD_PONDS.some(p=>{
+    const nx=(e.x-p.x)/p.rx, ny=(e.y-p.y)/p.ry;
+    return Math.hypot(nx,ny) < 1.0;
+  });
+  if(inPond){
+    const slow = P.waterSlow || 1.0;
+    e.vx *= slow; e.vy *= slow;
+  }
+
+  e.x += e.vx*dt; e.y += e.vy*dt;
+
+  // ハード衝突補正
+  const R = e.size;
+  // 木
+  FIELD_TREES.forEach(t=>{
+    const dx=e.x-t.x, dy=e.y-t.y, d=Math.hypot(dx,dy), mn=t.r+R;
+    if(d<mn && d>0.01){
+      e.x=t.x+dx/d*mn; e.y=t.y+dy/d*mn;
+      const nx=dx/d, ny=dy/d, dot=e.vx*nx+e.vy*ny;
+      if(dot<0){ e.vx-=dot*nx; e.vy-=dot*ny; }
+    }
+  });
+  // 小屋
+  HUTS.forEach(h=>{
+    if(e.x>h.x-R && e.x<h.x+h.w+R && e.y>h.y-R && e.y<h.y+h.h+R){
+      const cx=h.cx, cy=h.cy;
+      const dx=e.x-cx, dy=e.y-cy;
+      const px=h.w/2+R-Math.abs(dx);
+      const py=h.h/2+R-Math.abs(dy);
+      if(px<py){ e.x+=dx>0?px:-px; e.vx*=-0.3; }
+      else     { e.y+=dy>0?py:-py; e.vy*=-0.3; }
+    }
+  });
+  // 柵
+  const isVeh=(e.type==='tractor'||e.type==='truck');
+  PENS.forEach(pen=>{
+    const r=penHardCollision(pen, e.x, e.y, e.vx, e.vy, R, isVeh);
+    e.x=r.x; e.y=r.y; e.vx=r.vx; e.vy=r.vy;
+  });
+  // 森
+  if(P.avoidForest !== false){
+    if(inForest(e.x, e.y)){
+      const dx=FC-e.x, dy=FC-e.y, d=Math.hypot(dx,dy);
+      if(d>0.1){ e.x += dx/d*10; e.y += dy/d*10; }
+      e.vx *= 0.3; e.vy *= 0.3;
+    }
+  } else {
+    // 狼: フィールドの外 (かなり外) で制限
+    const dx=FC-e.x, dy=FC-e.y, d=Math.hypot(dx,dy);
+    if(d>FLD/2-30){
+      e.x = FC + dx/d*(-(FLD/2-30)) * -1;
+      e.x = FC - dx/d*(FLD/2-30);
+      e.y = FC - dy/d*(FLD/2-30);
+    }
+  }
+
+  // 向き更新
+  if(Math.hypot(e.vx,e.vy) > 4){
+    e.eyeDir = Math.atan2(e.vy, e.vx);
+  }
+
+  // トラック: 小屋/柵の前で一定時間停止
+  if(e.type==='truck' && P.stopNearFence){
+    if(e.stopUntil < totalT){
+      // 近くに小屋または柵があるか
+      const nearHut = HUTS.some(h=>{
+        // 正面の進行方向にある?
+        const dx=h.cx-e.x, dy=h.cy-e.y;
+        const d=Math.hypot(dx,dy);
+        if(d<80 || d>140) return false;
+        const heading=e.heading!==undefined?e.heading:Math.atan2(e.vy,e.vx);
+        const dotF = (dx/d)*Math.cos(heading) + (dy/d)*Math.sin(heading);
+        return dotF > 0.7;
+      });
+      const nearPen = PENS.some(pen=>{
+        const cx=pen.x+pen.w/2, cy=pen.y+pen.h/2;
+        const dx=cx-e.x, dy=cy-e.y, d=Math.hypot(dx,dy);
+        if(d<120 || d>180) return false;
+        const heading=e.heading!==undefined?e.heading:Math.atan2(e.vy,e.vx);
+        const dotF = (dx/d)*Math.cos(heading) + (dy/d)*Math.sin(heading);
+        return dotF > 0.6;
+      });
+      if(nearHut || nearPen){
+        e.stopUntil = totalT + rnd(2,5);
+      }
+    }
+  }
+}
+
+function updateDog(dt, ix, iy){
+  // 犬も自身の社会力の影響を受ける (牛/豚の接近)
+  const {fx, fy} = computeForces(dog, dt);
+
+  // 入力ベースの速度
+  const inPond = FIELD_PONDS.some(p=>{
+    const nx=(dog.x-p.x)/p.rx, ny=(dog.y-p.y)/p.ry;
+    return Math.hypot(nx,ny) < 1.0;
+  });
+  const spMult = inPond ? PARAMS.dog.waterSlow : 1.0;
+
+  // 入力による希望速度
+  const desiredVx = ix * dog.maxSpeed * spMult;
+  const desiredVy = iy * dog.maxSpeed * spMult;
+
+  // 静止物・動物から受ける力を加味
+  dog.vx = desiredVx + fx*dt*0.5;
+  dog.vy = desiredVy + fy*dt*0.5;
+
+  dog.x += dog.vx * dt;
+  dog.y += dog.vy * dt;
+
+  // 静止物ハード衝突
+  const R=dog.size;
+  FIELD_TREES.forEach(t=>{
+    const dx=dog.x-t.x, dy=dog.y-t.y, d=Math.hypot(dx,dy), mn=t.r+R;
+    if(d<mn && d>0.01){ dog.x=t.x+dx/d*mn; dog.y=t.y+dy/d*mn; }
+  });
+  HUTS.forEach(h=>{
+    if(dog.x>h.x-R && dog.x<h.x+h.w+R && dog.y>h.y-R && dog.y<h.y+h.h+R){
+      const cx=h.cx, cy=h.cy;
+      const dx=dog.x-cx, dy=dog.y-cy;
+      const px=h.w/2+R-Math.abs(dx);
+      const py=h.h/2+R-Math.abs(dy);
+      if(px<py) dog.x+=dx>0?px:-px;
+      else      dog.y+=dy>0?py:-py;
+    }
+  });
+  PENS.forEach(pen=>{
+    const r=penHardCollision(pen, dog.x, dog.y, dog.vx, dog.vy, R, false);
+    dog.x=r.x; dog.y=r.y; dog.vx=r.vx; dog.vy=r.vy;
+  });
+  if(inForest(dog.x,dog.y)){
+    const dx=FC-dog.x, dy=FC-dog.y, d=Math.hypot(dx,dy);
+    if(d>0.1){ dog.x+=dx/d*15; dog.y+=dy/d*15; }
+  }
+  dog.x=clamp(dog.x, 60, FLD-60);
+  dog.y=clamp(dog.y, 60, FLD-60);
+}
+
+
+// ============================================================
+//  吠える
+// ============================================================
+const BARK_TEXTS=['\\Bow!/','\\Wow!/','\\Woof!/','\\Wof!/','Bark!','Arf!','\\Woaf!/'];
+const BARK_RANGE=320, BARK_STRENGTH_BASE=1400;
+const BARK_COOLDOWN=0.55, BARK_DECAY=0.22, BARK_REGEN=0.08;
+const FARMER_BARK_RANGE=250;  // 牧場主の"近く" (約5m)
+
+function doBark(){
+  if(barkCooldown>0) return;
+  barkCooldown=BARK_COOLDOWN;
+  const txt=pick(BARK_TEXTS);
+  barks.push({x:dog.x,y:dog.y,text:txt,ttl:1.4,maxTtl:1.4});
+
+  // 動物を驚かせる
+  ENTITIES.forEach(a=>{
+    if(a===dog) return;
+    const dx=a.x-dog.x, dy=a.y-dog.y, d=Math.hypot(dx,dy);
+    if(d<BARK_RANGE && d>0.1){
+      const str = BARK_STRENGTH_BASE*barkEffect*(1-d/BARK_RANGE)/d;
+      // 動物のタイプによって反応の強さ調整
+      let mul=1;
+      if(a.type==='wolf') mul=1.3;
+      else if(a.type==='pig') mul=0.5;
+      else if(a.type==='cow') mul=0.7;
+      a.vx += dx*str*mul; a.vy += dy*str*mul;
+    }
+  });
+
+  // 牧場主の近くで吠えた?
+  if(FARMER){
+    const fd = Math.hypot(dog.x-FARMER.x, dog.y-FARMER.y);
+    if(fd < FARMER_BARK_RANGE){
+      farmerNearBarks++;
+      if(farmerNearBarks >= 3){
+        endGame();
+        return;
+      }
+    }
+  }
+
+  barkEffect = Math.max(0, barkEffect - BARK_DECAY);
+}
+
+// ============================================================
+//  ゲーム終了 / リザルト
+// ============================================================
+function endGame(){
+  scene = SCENE.RESULT;
+  // スコア計算
+  const resultLines = [];
+  const penCounts = {}; // penType -> {in, total}
+  LEVEL_SPEC.types.forEach(t=>{
+    const penT = PARAMS[t].pen;
+    if(!penCounts[penT]) penCounts[penT] = {in:0, total:0, species:[]};
+    penCounts[penT].total += LEVEL_SPEC.counts[t];
+    penCounts[penT].species.push(t);
+  });
+  // 各エンティティが正しい柵にいるかチェック
+  ENTITIES.forEach(e=>{
+    const pt = PARAMS[e.type].pen;
+    if(!pt) return;
+    const inCorrect = PENS.some(pen => pen.type===pt && inPenBounds(pen, e.x, e.y));
+    if(inCorrect) penCounts[pt].in++;
+  });
+
+  let totalIn=0, totalAll=0;
+  Object.keys(penCounts).forEach(pt=>{
+    const c=penCounts[pt];
+    totalIn += c.in; totalAll += c.total;
+    const speciesLabel = c.species.map(s=>PARAMS[s].label).join('/');
+    const pct = c.total>0 ? c.in/c.total : 0;
+    const ok = pct >= LEVEL_SPEC.successRate;
+    resultLines.push({label: speciesLabel, inN:c.in, total:c.total, ok});
+  });
+
+  const achievement = totalAll>0 ? totalIn/totalAll : 0;
+  const success = achievement >= LEVEL_SPEC.successRate;
+  const clearTime = totalT - GAME.levelStartTime;
+  GAME.prevAchievement = achievement;
+  GAME.prevTime = clearTime;
+
+  // HTML表示
+  const card = document.getElementById('result-card');
+  card.innerHTML = resultLines.map(r=>`
+    <div class="result-line">
+      <span>${r.label}</span>
+      <span>${r.inN}/${r.total}</span>
+      <span class="status ${r.ok?'ok':'no'}">${r.ok?'✓':'✗'}</span>
+    </div>
+  `).join('') + `
+    <div class="result-line" style="margin-top:6px;padding-top:8px;border-top:1px solid rgba(120,200,80,0.3);">
+      <span>達成率</span>
+      <span>${Math.round(achievement*100)}% / ${Math.round(LEVEL_SPEC.successRate*100)}%</span>
+      <span class="status ${success?'ok':'no'}">${success?'✓':'✗'}</span>
+    </div>
+    <div class="result-line">
+      <span>クリアタイム</span>
+      <span>${clearTime.toFixed(1)}s</span>
+      <span></span>
+    </div>`;
+
+  const verdict = document.getElementById('result-verdict');
+  if(success){
+    verdict.textContent = '🎉 せいこう！';
+    verdict.className = 'result-verdict verdict-success';
+    document.getElementById('result-title').textContent = `LEVEL ${GAME.level} CLEAR`;
+    document.getElementById('result-next-btn').textContent = `LEVEL ${GAME.level+1} へ →`;
+    document.getElementById('result-next-btn').style.display = 'inline-block';
+    document.getElementById('result-sub').textContent = '次のレベルに挑戦！';
+  } else {
+    verdict.textContent = '😢 しっぱい…';
+    verdict.className = 'result-verdict verdict-fail';
+    document.getElementById('result-title').textContent = `LEVEL ${GAME.level} FAIL`;
+    document.getElementById('result-next-btn').style.display = 'none';
+    document.getElementById('result-sub').textContent = 'メニューに戻ります';
+  }
+  showScene(SCENE.RESULT);
+  GAME._lastSuccess = success;
+}
+
+// ============================================================
+//  HUD / UI
+// ============================================================
+function updateHUDTargets(){
+  // 各柵の現在の収容数と目標数を表示
+  const html = PENS.map(pen=>{
+    // この柵に入っている正しい動物数
+    const inN = ENTITIES.filter(e=>PARAMS[e.type].pen===pen.type && inPenBounds(pen,e.x,e.y)).length;
+    // この柵のタイプに対応する動物の総数
+    const total = LEVEL_SPEC.types.filter(t=>PARAMS[t].pen===pen.type)
+                    .reduce((s,t)=>s+LEVEL_SPEC.counts[t],0);
+    const goalN = Math.ceil(total * LEVEL_SPEC.successRate);
+    const emoji = penEmoji(pen.type);
+    return `<div class="ui-block"><div class="ui-label">${emoji}</div><div class="ui-value">${inN}/${goalN}</div></div>`;
+  }).join('');
+  document.getElementById('ui-targets').innerHTML = html;
+  document.getElementById('ui-level').textContent = GAME.level;
+  if(dog) document.getElementById('ui-pos').textContent = `${Math.round(dog.x)},${Math.round(dog.y)}`;
+
+  // 吠え効果メーター
+  const pct=Math.round(barkEffect*100);
+  document.getElementById('bark-pct').textContent = pct+'%';
+
+  // 牧場主の近くで吠えた警告
+  if(dog && FARMER){
+    const fd = Math.hypot(dog.x-FARMER.x, dog.y-FARMER.y);
+    const alert = document.getElementById('farmer-alert');
+    if(fd < FARMER_BARK_RANGE && farmerNearBarks > 0 && farmerNearBarks < 3){
+      alert.style.display = 'block';
+      document.getElementById('farmer-bark-count').textContent = 3 - farmerNearBarks;
+    } else if(fd >= FARMER_BARK_RANGE || farmerNearBarks === 0){
+      alert.style.display = 'none';
+    }
+  }
+
+  const barkBtn = document.getElementById('bark-btn');
+  barkBtn.classList.toggle('cooling', barkCooldown>0);
+}
+
+function penEmoji(penType){
+  return {sheep:'🐑',goose:'🪿',chicken:'🐔',cow:'🐄',pig:'🐖'}[penType] || '❓';
+}
+
+// ============================================================
+//  描画
+// ============================================================
+function drawBackground(){
+  ctx.fillStyle='#4a8c38';
+  ctx.fillRect(0,0,CW,CH);
+  // 格子草
+  ctx.globalAlpha=0.09;
+  for(let gx=-50;gx<CW+50;gx+=20)for(let gy=-50;gy<CH+50;gy+=20){
+    ctx.fillStyle=(gx+gy)%40===0?'#3a7030':'#528c3e';
+    ctx.fillRect(gx,gy,16,16);
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawForest(){
+  const sc=wScale();
+  ctx.fillStyle='#1e4010';
+  ctx.fillRect(0,0,CW,CH);
+  ctx.fillStyle='#4a8c38';
+  ctx.beginPath();
+  for(let i=0;i<=FOREST_POINTS;i++){
+    const idx=i%FOREST_POINTS;
+    const a=idx/FOREST_POINTS*Math.PI*2;
+    const r=forestR[idx];
+    const wx=FC+Math.cos(a)*r;
+    const wy=FC+Math.sin(a)*r;
+    const s=w2s(wx,wy);
+    if(i===0) ctx.moveTo(s.x,s.y); else ctx.lineTo(s.x,s.y);
+  }
+  ctx.closePath();ctx.fill();
+
+  // 森のふちに木の点描
+  ctx.fillStyle='rgba(20,50,10,0.55)';
+  for(let i=0;i<FOREST_POINTS;i+=2){
+    const a=i/FOREST_POINTS*Math.PI*2;
+    const r=forestR[i];
+    const wx=FC+Math.cos(a)*r;
+    const wy=FC+Math.sin(a)*r;
+    if(!isVisible(wx,wy,40))continue;
+    const s=w2s(wx,wy);
+    const tr=8+Math.sin(i*7.3)*3;
+    const wx2=FC+Math.cos(a)*(r+30);
+    const wy2=FC+Math.sin(a)*(r+30);
+    const s2=w2s(wx2,wy2);
+    ctx.beginPath();ctx.arc(s2.x,s2.y,tr*sc,0,Math.PI*2);ctx.fill();
+    const wx3=FC+Math.cos(a)*(r+80);
+    const wy3=FC+Math.sin(a)*(r+80);
+    const s3=w2s(wx3,wy3);
+    ctx.beginPath();ctx.arc(s3.x,s3.y,tr*1.2*sc,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
+  ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);
+  ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);
+  ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}
+
+function drawPonds(){
+  const sc=wScale();
+  FIELD_PONDS.forEach(p=>{
+    if(!isVisible(p.x,p.y,p.rx+50)) return;
+    const ps=w2s(p.x,p.y);
+    const g=ctx.createRadialGradient(ps.x,ps.y,0,ps.x,ps.y,p.rx*sc);
+    g.addColorStop(0,'#62b2da'); g.addColorStop(1,'#2e70a8');
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.ellipse(ps.x,ps.y,p.rx*sc,p.ry*sc,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1.5;ctx.stroke();
+    // 水面のゆらぎ
+    ctx.strokeStyle='rgba(200,230,250,0.2)';ctx.lineWidth=1;
+    const wave=Math.sin(totalT*1.5)*2;
+    ctx.beginPath();ctx.ellipse(ps.x,ps.y,p.rx*sc*0.6,p.ry*sc*0.6+wave,0,0,Math.PI*2);ctx.stroke();
+  });
+}
+
+function drawTrees(){
+  const sc=wScale();
+  FIELD_TREES.forEach(t=>{
+    if(!isVisible(t.x,t.y,t.r+20)) return;
+    const ts=w2s(t.x,t.y);
+    const r=t.r*sc;
+    ctx.fillStyle='rgba(0,0,0,0.12)';
+    ctx.beginPath();ctx.ellipse(ts.x+3,ts.y+5,r,r*0.42,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#7a5230';ctx.fillRect(ts.x-2*sc,ts.y-2*sc,4*sc,t.r*sc+4*sc);
+    if(t.kind==='tall'){
+      // 細長い木
+      const lg=ctx.createRadialGradient(ts.x-3,ts.y-6,0,ts.x,ts.y,r);
+      lg.addColorStop(0,'#a0d860');lg.addColorStop(0.5,'#58a028');lg.addColorStop(1,'#306018');
+      ctx.fillStyle=lg;
+      ctx.beginPath();ctx.ellipse(ts.x,ts.y-r*0.15,r*0.75,r,0,0,Math.PI*2);ctx.fill();
+    } else {
+      const lg=ctx.createRadialGradient(ts.x-3,ts.y-3,0,ts.x,ts.y,r);
+      lg.addColorStop(0,'#70c242');lg.addColorStop(0.6,'#4a9028');lg.addColorStop(1,'#2e5818');
+      ctx.fillStyle=lg;ctx.beginPath();ctx.arc(ts.x,ts.y,r,0,Math.PI*2);ctx.fill();
+    }
+  });
+}
+
+function drawHuts(){
+  const sc=wScale();
+  HUTS.forEach(h=>{
+    if(!isVisible(h.cx,h.cy,Math.max(h.w,h.h)+20)) return;
+    const hs=w2s(h.x,h.y);
+    const hw=h.w*sc, hh=h.h*sc;
+    const hcsx=hs.x+hw/2, hcsy=hs.y+hh/2;
+    const dir=h.dir||'N';
+    const isHouse=h.style==='house';
+
+    // 影
+    ctx.fillStyle='rgba(0,0,0,0.14)';
+    ctx.fillRect(hs.x+5,hs.y+5,hw,hh);
+
+    // 屋根 (2色の三角屋根を上面図として表現)
+    if(dir==='N'||dir==='S'){
+      ctx.fillStyle=isHouse?'#b04040':'#c8a870';
+      ctx.fillRect(hs.x,hs.y,hw/2,hh);
+      ctx.fillStyle=isHouse?'#902828':'#b89060';
+      ctx.fillRect(hs.x+hw/2,hs.y,hw/2,hh);
+    } else {
+      ctx.fillStyle=isHouse?'#b04040':'#c8a870';
+      ctx.fillRect(hs.x,hs.y,hw,hh/2);
+      ctx.fillStyle=isHouse?'#902828':'#b89060';
+      ctx.fillRect(hs.x,hs.y+hh/2,hw,hh/2);
+    }
+    ctx.strokeStyle=isHouse?'#501818':'#6a4010';
+    ctx.lineWidth=2;
+    ctx.strokeRect(hs.x,hs.y,hw,hh);
+    // 棟
+    ctx.strokeStyle=isHouse?'#401010':'#5a3008';
+    ctx.lineWidth=3;ctx.lineCap='round';
+    if(dir==='N'||dir==='S'){
+      ctx.beginPath();ctx.moveTo(hcsx,hs.y+3);ctx.lineTo(hcsx,hs.y+hh-3);ctx.stroke();
+    } else {
+      ctx.beginPath();ctx.moveTo(hs.x+3,hcsy);ctx.lineTo(hs.x+hw-3,hcsy);ctx.stroke();
+    }
+    // ドア
+    ctx.fillStyle=isHouse?'#3a2010':'#4a2808';
+    const dw=Math.min(hw,hh)*0.28, dh=Math.min(hw,hh)*0.2;
+    if(dir==='S') ctx.fillRect(hcsx-dw/2,hs.y+hh-dh,dw,dh);
+    else if(dir==='N') ctx.fillRect(hcsx-dw/2,hs.y,dw,dh);
+    else if(dir==='E') ctx.fillRect(hs.x+hw-dh,hcsy-dw/2,dh,dw);
+    else               ctx.fillRect(hs.x,hcsy-dw/2,dh,dw);
+    // 民家は煙突追加
+    if(isHouse){
+      ctx.fillStyle='#3a2818';
+      ctx.fillRect(hcsx-3*sc,hcsy-3*sc,6*sc,6*sc);
+    }
+  });
+}
+
+function drawPens(){
+  const sc=wScale();
+  PENS.forEach(pen=>{
+    if(!isVisible(pen.x+pen.w/2, pen.y+pen.h/2, Math.max(pen.w,pen.h))) return;
+    const ps=w2s(pen.x, pen.y);
+    const pw=pen.w*sc, ph=pen.h*sc;
+    // 地面色 (柵タイプで着色)
+    const colorMap = {
+      sheep:'rgba(210,175,95,0.15)', goose:'rgba(160,210,230,0.15)',
+      chicken:'rgba(220,180,100,0.15)', cow:'rgba(180,160,130,0.15)',
+      pig:'rgba(220,180,180,0.15)',
+    };
+    ctx.fillStyle = colorMap[pen.type] || 'rgba(200,200,100,0.15)';
+    ctx.fillRect(ps.x, ps.y, pw, ph);
+
+    const op=pen.opening;
+    const drawH=(x1v,yv,x2v)=>{
+      if(x2v<=x1v) return;
+      const a=w2s(x1v,yv), b=w2s(x2v,yv);
+      ctx.strokeStyle='#a07838'; ctx.lineWidth=2.5*sc; ctx.lineCap='round';
+      [-6*sc, 0].forEach(off=>{
+        ctx.beginPath(); ctx.moveTo(a.x,a.y+off); ctx.lineTo(b.x,b.y+off); ctx.stroke();
+      });
+      for(let xv=x1v;xv<=x2v;xv+=36){
+        const p=w2s(xv,yv); ctx.fillStyle='#8a6028';
+        ctx.fillRect(p.x-2.5*sc, p.y-9*sc, 5*sc, 18*sc);
+      }
+    };
+    const drawV=(xv,y1v,y2v)=>{
+      if(y2v<=y1v) return;
+      const a=w2s(xv,y1v), b=w2s(xv,y2v);
+      ctx.strokeStyle='#a07838'; ctx.lineWidth=2.5*sc; ctx.lineCap='round';
+      [0, 6*sc].forEach(off=>{
+        ctx.beginPath(); ctx.moveTo(a.x+off,a.y); ctx.lineTo(b.x+off,b.y); ctx.stroke();
+      });
+      for(let yv=y1v;yv<=y2v;yv+=36){
+        const p=w2s(xv,yv); ctx.fillStyle='#8a6028';
+        ctx.fillRect(p.x-3*sc, p.y-2.5*sc, 14*sc, 5*sc);
+      }
+    };
+    // 4辺、開口部考慮
+    if(op.wall==='top'){ drawH(pen.x,pen.y,op.x); drawH(op.x+op.w,pen.y,pen.x+pen.w); }
+    else drawH(pen.x,pen.y,pen.x+pen.w);
+    if(op.wall==='bottom'){ drawH(pen.x,pen.y+pen.h,op.x); drawH(op.x+op.w,pen.y+pen.h,pen.x+pen.w); }
+    else drawH(pen.x,pen.y+pen.h,pen.x+pen.w);
+    if(op.wall==='left'){ drawV(pen.x,pen.y,op.y); drawV(pen.x,op.y+op.h,pen.y+pen.h); }
+    else drawV(pen.x,pen.y,pen.y+pen.h);
+    if(op.wall==='right'){ drawV(pen.x+pen.w,pen.y,op.y); drawV(pen.x+pen.w,op.y+op.h,pen.y+pen.h); }
+    else drawV(pen.x+pen.w,pen.y,pen.y+pen.h);
+
+    // 看板 (中央)
+    const signX=pen.x+pen.w/2, signY=pen.y+pen.h/2;
+    const ss=w2s(signX,signY);
+    // 看板の柱
+    ctx.fillStyle='#6a4020';
+    ctx.fillRect(ss.x-2*sc, ss.y, 4*sc, 28*sc);
+    // 看板本体
+    const boardC = {
+      sheep:'#d8b060', goose:'#60a0c8',
+      chicken:'#e0a840', cow:'#a89080',
+      pig:'#d898a0',
+    }[pen.type] || '#d0c060';
+    ctx.fillStyle=boardC;
+    roundRect(ctx, ss.x-32*sc, ss.y-28*sc, 64*sc, 44*sc, 6*sc);
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1.5;
+    ctx.stroke();
+    // 看板に動物アイコン (絵文字)
+    ctx.font = `${Math.round(26*sc)}px sans-serif`;
+    ctx.textAlign='center';
+    ctx.fillStyle='#3a2010';
+    ctx.fillText(penEmoji(pen.type), ss.x, ss.y-2*sc);
+  });
+}
+
+
+// ============================================================
+//  動物・犬・狼・車両・牧場主 描画
+// ============================================================
+function drawAnimal(a){
+  const sc=wScale();
+  const s=w2s(a.x,a.y);
+  if(!isVisible(a.x,a.y,60)) return;
+  const R=a.size;
+  const g = PARAMS[a.type].group;
+  ctx.save();
+  ctx.translate(s.x, s.y);
+  const r=R*sc;
+  // 影
+  ctx.fillStyle='rgba(0,0,0,0.15)';
+  ctx.beginPath();ctx.ellipse(2*sc,4*sc,r*0.88,r*0.38,0,0,Math.PI*2);ctx.fill();
+
+  const P = PARAMS[a.type];
+  switch(g){
+    case 'sheep': drawSheepShape(a,r,sc,P); break;
+    case 'goose': drawGooseShape(a,r,sc,P); break;
+    case 'chicken': drawChickenShape(a,r,sc,P); break;
+    case 'cow': drawCowShape(a,r,sc,P); break;
+    case 'pig': drawPigShape(a,r,sc,P); break;
+    case 'wolf': drawWolfShape(a,r,sc,P); break;
+  }
+  ctx.restore();
+}
+
+function drawSheepShape(a,r,sc,P){
+  // 白羊, 黒羊, 頭黒羊
+  const wb=Math.sin((totalT+a.fo)*3)*0.3;
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.ellipse(0,0,r+wb*sc,r*0.8,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle=P.bodyShade+'44';ctx.lineWidth=0.7*sc;ctx.stroke();
+  // もふもふハイライト
+  ctx.fillStyle='rgba(255,255,255,0.14)';
+  for(let i=0;i<5;i++){
+    const ang=(i/5)*Math.PI*2+totalT*0.5;
+    ctx.beginPath();
+    ctx.arc(Math.cos(ang)*(r-2*sc)*0.52, Math.sin(ang)*(r-2*sc)*0.52, r*0.26, 0, Math.PI*2);
+    ctx.fill();
+  }
+  // 顔 (頭黒羊は黒)
+  const fX=Math.cos(a.eyeDir)*r*0.6, fY=Math.sin(a.eyeDir)*r*0.6;
+  ctx.fillStyle = P.blackHead ? '#2a1e14' : '#d4c49a';
+  ctx.beginPath();ctx.ellipse(fX,fY,r*0.46,r*0.4,a.eyeDir,0,Math.PI*2);ctx.fill();
+  const perp=a.eyeDir+Math.PI/2;
+  [-1,1].forEach(side=>{
+    const ex=fX+Math.cos(a.eyeDir)*r*0.1+Math.cos(perp)*side*r*0.22;
+    const ey=fY+Math.sin(a.eyeDir)*r*0.1+Math.sin(perp)*side*r*0.22;
+    ctx.fillStyle=P.blackHead?'#f0d0a0':'#1a0a06';
+    ctx.beginPath();ctx.arc(ex,ey,r*0.12,0,Math.PI*2);ctx.fill();
+  });
+}
+
+function drawGooseShape(a,r,sc,P){
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.ellipse(0,0,r,r*0.72,a.eyeDir,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(150,180,200,0.35)';ctx.lineWidth=0.8*sc;ctx.stroke();
+  // 首
+  const nkLen=r*1.15;
+  const nkX=Math.cos(a.eyeDir)*nkLen, nkY=Math.sin(a.eyeDir)*nkLen;
+  ctx.strokeStyle=P.color; ctx.lineWidth=r*0.55; ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(nkX,nkY);ctx.stroke();
+  // 頭
+  ctx.fillStyle='#2a2010';
+  ctx.beginPath();ctx.arc(nkX,nkY,r*0.4,0,Math.PI*2);ctx.fill();
+  // くちばし
+  ctx.fillStyle='#e08020';
+  ctx.beginPath();
+  ctx.moveTo(nkX+Math.cos(a.eyeDir)*r*0.4, nkY+Math.sin(a.eyeDir)*r*0.4);
+  ctx.lineTo(nkX+Math.cos(a.eyeDir+0.3)*r*0.72, nkY+Math.sin(a.eyeDir+0.3)*r*0.72);
+  ctx.lineTo(nkX+Math.cos(a.eyeDir-0.3)*r*0.72, nkY+Math.sin(a.eyeDir-0.3)*r*0.72);
+  ctx.closePath();ctx.fill();
+  // 目
+  const perp=a.eyeDir+Math.PI/2;
+  const ex=nkX+Math.cos(perp)*r*0.2;
+  const ey=nkY+Math.sin(perp)*r*0.2;
+  ctx.fillStyle='#e0e000';ctx.beginPath();ctx.arc(ex,ey,r*0.14,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#0a0a00';ctx.beginPath();ctx.arc(ex,ey,r*0.08,0,Math.PI*2);ctx.fill();
+}
+
+function drawChickenShape(a,r,sc,P){
+  // 小さい、赤いとさか
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.ellipse(0,0,r,r*0.75,a.eyeDir,0,Math.PI*2);ctx.fill();
+  // 頭
+  const hx=Math.cos(a.eyeDir)*r*0.7, hy=Math.sin(a.eyeDir)*r*0.7;
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.arc(hx,hy,r*0.44,0,Math.PI*2);ctx.fill();
+  // とさか (赤)
+  ctx.fillStyle='#c83030';
+  const perp=a.eyeDir-Math.PI/2;
+  ctx.beginPath();
+  ctx.moveTo(hx+Math.cos(perp)*r*0.35, hy+Math.sin(perp)*r*0.35);
+  ctx.lineTo(hx+Math.cos(perp)*r*0.55+Math.cos(a.eyeDir)*r*0.15,
+             hy+Math.sin(perp)*r*0.55+Math.sin(a.eyeDir)*r*0.15);
+  ctx.lineTo(hx+Math.cos(perp)*r*0.5+Math.cos(a.eyeDir)*r*-0.2,
+             hy+Math.sin(perp)*r*0.5+Math.sin(a.eyeDir)*r*-0.2);
+  ctx.closePath();ctx.fill();
+  // くちばし
+  ctx.fillStyle='#e0a020';
+  ctx.beginPath();
+  ctx.moveTo(hx+Math.cos(a.eyeDir)*r*0.44, hy+Math.sin(a.eyeDir)*r*0.44);
+  ctx.lineTo(hx+Math.cos(a.eyeDir+0.35)*r*0.7, hy+Math.sin(a.eyeDir+0.35)*r*0.7);
+  ctx.lineTo(hx+Math.cos(a.eyeDir-0.35)*r*0.7, hy+Math.sin(a.eyeDir-0.35)*r*0.7);
+  ctx.closePath();ctx.fill();
+  // 目
+  const perp2=a.eyeDir+Math.PI/2;
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp2)*side*r*0.22+Math.cos(a.eyeDir)*r*0.15;
+    const ey=hy+Math.sin(perp2)*side*r*0.22+Math.sin(a.eyeDir)*r*0.15;
+    ctx.fillStyle='#1a0808';ctx.beginPath();ctx.arc(ex,ey,r*0.1,0,Math.PI*2);ctx.fill();
+  });
+  // 尻尾の羽
+  const tailA = a.eyeDir+Math.PI;
+  ctx.fillStyle=P.bodyShade;
+  ctx.beginPath();ctx.ellipse(Math.cos(tailA)*r*0.9, Math.sin(tailA)*r*0.9, r*0.35, r*0.25, tailA, 0, Math.PI*2);
+  ctx.fill();
+}
+
+function drawCowShape(a,r,sc,P){
+  // 大きい、白地に黒のパッチ
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.ellipse(0,0,r*1.1,r*0.82,a.eyeDir,0,Math.PI*2);ctx.fill();
+  // 黒パッチ (3-4箇所、個体差variant)
+  ctx.fillStyle=P.bodyShade;
+  const patches = [[0.3,0.3,0.35],[-0.3,-0.3,0.3],[-0.4,0.35,0.25],[0.3,-0.25,0.28]];
+  patches.forEach((p,i)=>{
+    if((i+a.variant)%2===0) return;
+    const ang=a.eyeDir;
+    const px=Math.cos(ang)*p[0]*r-Math.sin(ang)*p[1]*r;
+    const py=Math.sin(ang)*p[0]*r+Math.cos(ang)*p[1]*r;
+    ctx.beginPath();ctx.ellipse(px,py,r*p[2],r*p[2]*0.8,ang,0,Math.PI*2);ctx.fill();
+  });
+  // 頭
+  const hx=Math.cos(a.eyeDir)*r*0.95, hy=Math.sin(a.eyeDir)*r*0.95;
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.arc(hx,hy,r*0.55,0,Math.PI*2);ctx.fill();
+  // 鼻口
+  ctx.fillStyle='#e8b0a0';
+  ctx.beginPath();ctx.ellipse(hx+Math.cos(a.eyeDir)*r*0.3, hy+Math.sin(a.eyeDir)*r*0.3, r*0.3, r*0.22, a.eyeDir, 0, Math.PI*2);
+  ctx.fill();
+  // 鼻の穴
+  ctx.fillStyle='#4a2828';
+  const perp=a.eyeDir+Math.PI/2;
+  [-1,1].forEach(side=>{
+    const nx=hx+Math.cos(a.eyeDir)*r*0.4+Math.cos(perp)*side*r*0.1;
+    const ny=hy+Math.sin(a.eyeDir)*r*0.4+Math.sin(perp)*side*r*0.1;
+    ctx.beginPath();ctx.arc(nx,ny,r*0.06,0,Math.PI*2);ctx.fill();
+  });
+  // 耳
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.45;
+    const ey=hy+Math.sin(perp)*side*r*0.45;
+    ctx.fillStyle=P.color;
+    ctx.beginPath();ctx.ellipse(ex,ey,r*0.2,r*0.12,perp*side,0,Math.PI*2);ctx.fill();
+  });
+  // 角
+  ctx.strokeStyle='#e8d8b0';ctx.lineWidth=r*0.1;ctx.lineCap='round';
+  [-1,1].forEach(side=>{
+    const hnx=hx+Math.cos(perp)*side*r*0.35-Math.cos(a.eyeDir)*r*0.2;
+    const hny=hy+Math.sin(perp)*side*r*0.35-Math.sin(a.eyeDir)*r*0.2;
+    ctx.beginPath();
+    ctx.moveTo(hnx, hny);
+    ctx.lineTo(hnx+Math.cos(perp)*side*r*0.2-Math.cos(a.eyeDir)*r*0.1, hny+Math.sin(perp)*side*r*0.2-Math.sin(a.eyeDir)*r*0.1);
+    ctx.stroke();
+  });
+  // 目
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.22+Math.cos(a.eyeDir)*r*0.1;
+    const ey=hy+Math.sin(perp)*side*r*0.22+Math.sin(a.eyeDir)*r*0.1;
+    ctx.fillStyle='#1a0a06';ctx.beginPath();ctx.arc(ex,ey,r*0.09,0,Math.PI*2);ctx.fill();
+  });
+}
+
+function drawPigShape(a,r,sc,P){
+  // ピンクの太めの体
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.ellipse(0,0,r,r*0.82,a.eyeDir,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle=P.bodyShade+'88';
+  ctx.beginPath();ctx.ellipse(0,r*0.3,r*0.7,r*0.3,a.eyeDir,0,Math.PI*2);ctx.fill();
+  // 頭
+  const hx=Math.cos(a.eyeDir)*r*0.85, hy=Math.sin(a.eyeDir)*r*0.85;
+  ctx.fillStyle=P.color;
+  ctx.beginPath();ctx.arc(hx,hy,r*0.52,0,Math.PI*2);ctx.fill();
+  // 鼻 (大きい円)
+  ctx.fillStyle='#e08088';
+  ctx.beginPath();ctx.ellipse(hx+Math.cos(a.eyeDir)*r*0.35, hy+Math.sin(a.eyeDir)*r*0.35, r*0.3, r*0.26, a.eyeDir, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle='#b05060';ctx.lineWidth=1.2*sc;ctx.stroke();
+  // 鼻の穴
+  ctx.fillStyle='#3a1818';
+  const perp=a.eyeDir+Math.PI/2;
+  [-1,1].forEach(side=>{
+    const nx=hx+Math.cos(a.eyeDir)*r*0.45+Math.cos(perp)*side*r*0.1;
+    const ny=hy+Math.sin(a.eyeDir)*r*0.45+Math.sin(perp)*side*r*0.1;
+    ctx.beginPath();ctx.arc(nx,ny,r*0.06,0,Math.PI*2);ctx.fill();
+  });
+  // 耳 (三角)
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.4-Math.cos(a.eyeDir)*r*0.1;
+    const ey=hy+Math.sin(perp)*side*r*0.4-Math.sin(a.eyeDir)*r*0.1;
+    ctx.fillStyle=P.bodyShade;
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex+Math.cos(perp)*side*r*0.22, ey+Math.sin(perp)*side*r*0.22);
+    ctx.lineTo(ex+Math.cos(a.eyeDir)*r*0.2, ey+Math.sin(a.eyeDir)*r*0.2);
+    ctx.closePath();ctx.fill();
+  });
+  // 目
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.2+Math.cos(a.eyeDir)*r*0.05;
+    const ey=hy+Math.sin(perp)*side*r*0.2+Math.sin(a.eyeDir)*r*0.05;
+    ctx.fillStyle='#1a0a06';ctx.beginPath();ctx.arc(ex,ey,r*0.08,0,Math.PI*2);ctx.fill();
+  });
+  // くるりんしっぽ
+  const ta=a.eyeDir+Math.PI;
+  ctx.strokeStyle=P.bodyShade;ctx.lineWidth=2*sc;
+  ctx.beginPath();
+  ctx.arc(Math.cos(ta)*r*0.9, Math.sin(ta)*r*0.9, r*0.18, 0, Math.PI*1.7);
+  ctx.stroke();
+}
+
+function drawWolfShape(w,r,sc,P){
+  const fa=w.eyeDir||0;
+  // 体
+  ctx.fillStyle='#6a6458';
+  ctx.beginPath();ctx.ellipse(0,0,r*0.9,r*0.68,fa,0,Math.PI*2);ctx.fill();
+  // 頭
+  const hx=Math.cos(fa)*r*0.92, hy=Math.sin(fa)*r*0.92;
+  ctx.fillStyle='#5a5448';
+  ctx.beginPath();ctx.arc(hx,hy,r*0.6,0,Math.PI*2);ctx.fill();
+  // 耳
+  const perp=fa+Math.PI/2;
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.45, ey=hy+Math.sin(perp)*side*r*0.45;
+    ctx.fillStyle='#4a4438';
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex+Math.cos(fa)*r*0.4+Math.cos(perp)*side*r*0.15, ey+Math.sin(fa)*r*0.4+Math.sin(perp)*side*r*0.15);
+    ctx.lineTo(ex+Math.cos(perp)*side*r*0.1, ey+Math.sin(perp)*side*r*0.1);
+    ctx.closePath();ctx.fill();
+  });
+  // 鼻
+  ctx.fillStyle='#1a1210';
+  ctx.beginPath();ctx.arc(hx+Math.cos(fa)*r*0.5, hy+Math.sin(fa)*r*0.5, r*0.18, 0, Math.PI*2);ctx.fill();
+  // 目 (黄色)
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.28+Math.cos(fa)*r*0.18;
+    const ey=hy+Math.sin(perp)*side*r*0.28+Math.sin(fa)*r*0.18;
+    ctx.fillStyle='#d0b000';ctx.beginPath();ctx.arc(ex,ey,r*0.15,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#0a0800';ctx.beginPath();ctx.arc(ex,ey,r*0.08,0,Math.PI*2);ctx.fill();
+  });
+  // しっぽ
+  const ta=fa+Math.PI+Math.sin(totalT*4)*0.4;
+  ctx.strokeStyle='#5a5448';ctx.lineWidth=3*sc;ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(-Math.cos(fa)*r*0.7, -Math.sin(fa)*r*0.7);
+  ctx.quadraticCurveTo(Math.cos(ta)*r*1.1, Math.sin(ta)*r*1.1, Math.cos(ta)*r*1.8, Math.sin(ta)*r*1.8);
+  ctx.stroke();
+}
+
+function drawTractor(v){
+  const sc=wScale();
+  if(!isVisible(v.x,v.y,60)) return;
+  const s=w2s(v.x,v.y);
+  const r=v.size*sc;
+  const fa=v.heading !== undefined ? v.heading : v.eyeDir || 0;
+  ctx.save();
+  ctx.translate(s.x,s.y);
+  ctx.rotate(fa);
+  // 影
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.fillRect(-r*1.1+3*sc, -r*0.7+5*sc, r*2.2, r*1.4);
+  // 後輪
+  ctx.fillStyle='#2a2a22';
+  ctx.fillRect(-r*0.9, -r*0.9, r*0.7, r*0.28);
+  ctx.fillRect(-r*0.9, r*0.62, r*0.7, r*0.28);
+  // 前輪 (小)
+  ctx.fillRect(r*0.5, -r*0.7, r*0.5, r*0.2);
+  ctx.fillRect(r*0.5, r*0.5, r*0.5, r*0.2);
+  // ボディ
+  ctx.fillStyle=PARAMS.tractor.color;
+  ctx.fillRect(-r*0.9, -r*0.55, r*1.9, r*1.1);
+  ctx.strokeStyle=PARAMS.tractor.bodyShade;
+  ctx.lineWidth=2;
+  ctx.strokeRect(-r*0.9, -r*0.55, r*1.9, r*1.1);
+  // エンジン (前)
+  ctx.fillStyle=PARAMS.tractor.bodyShade;
+  ctx.fillRect(r*0.3, -r*0.45, r*0.7, r*0.9);
+  // キャビン
+  ctx.fillStyle='#d0e8f8';
+  ctx.fillRect(-r*0.5, -r*0.4, r*0.7, r*0.8);
+  ctx.strokeStyle='#4a5060';ctx.lineWidth=1.5;
+  ctx.strokeRect(-r*0.5, -r*0.4, r*0.7, r*0.8);
+  // 排気筒
+  ctx.fillStyle='#4a3020';
+  ctx.fillRect(r*0.35, -r*0.4, r*0.12, r*0.25);
+  ctx.restore();
+}
+
+function drawTruck(v){
+  const sc=wScale();
+  if(!isVisible(v.x,v.y,60)) return;
+  const s=w2s(v.x,v.y);
+  const r=v.size*sc;
+  const fa=v.heading !== undefined ? v.heading : v.eyeDir || 0;
+  ctx.save();
+  ctx.translate(s.x,s.y);
+  ctx.rotate(fa);
+  // 影
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.fillRect(-r*1.3+3*sc, -r*0.6+5*sc, r*2.6, r*1.2);
+  // タイヤ
+  ctx.fillStyle='#1a1a18';
+  [-r*0.9, r*0.7].forEach(tx=>{
+    ctx.fillRect(tx-r*0.2, -r*0.75, r*0.4, r*0.18);
+    ctx.fillRect(tx-r*0.2, r*0.57, r*0.4, r*0.18);
+  });
+  // 荷台 (後部)
+  ctx.fillStyle='#8a7a60';
+  ctx.fillRect(-r*1.3, -r*0.55, r*1.1, r*1.1);
+  ctx.strokeStyle='#5a4a30';ctx.lineWidth=2;
+  ctx.strokeRect(-r*1.3, -r*0.55, r*1.1, r*1.1);
+  // キャビン
+  ctx.fillStyle=PARAMS.truck.color;
+  ctx.fillRect(-r*0.15, -r*0.55, r*1.45, r*1.1);
+  ctx.strokeStyle=PARAMS.truck.bodyShade;ctx.lineWidth=2;
+  ctx.strokeRect(-r*0.15, -r*0.55, r*1.45, r*1.1);
+  // フロントガラス
+  ctx.fillStyle='#c8dcea';
+  ctx.fillRect(r*0.75, -r*0.45, r*0.5, r*0.9);
+  ctx.strokeStyle='#4a5060';ctx.lineWidth=1;
+  ctx.strokeRect(r*0.75, -r*0.45, r*0.5, r*0.9);
+  // ヘッドライト
+  ctx.fillStyle='#fff0a0';
+  ctx.fillRect(r*1.22, -r*0.5, r*0.08, r*0.15);
+  ctx.fillRect(r*1.22, r*0.35, r*0.08, r*0.15);
+  ctx.restore();
+}
+
+function drawFarmer(){
+  if(!FARMER) return;
+  if(!isVisible(FARMER.x,FARMER.y,40)) return;
+  const sc=wScale();
+  const s=w2s(FARMER.x,FARMER.y);
+  const r=14*sc;
+  ctx.save(); ctx.translate(s.x,s.y);
+  ctx.fillStyle='rgba(0,0,0,0.2)';
+  ctx.beginPath();ctx.ellipse(3*sc,5*sc,r*0.7,r*0.28,0,0,Math.PI*2);ctx.fill();
+  // 足
+  ctx.fillStyle='#4a3020';
+  ctx.fillRect(-r*0.35,r*0.3,r*0.3,r*0.55);
+  ctx.fillRect(r*0.05,r*0.3,r*0.3,r*0.55);
+  // 胴体
+  ctx.fillStyle='#3060a0';
+  ctx.beginPath();ctx.ellipse(0,r*0.1,r*0.45,r*0.55,0,0,Math.PI*2);ctx.fill();
+  // 腕
+  ctx.strokeStyle='#3060a0';ctx.lineWidth=r*0.28;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-r*0.45,0);ctx.lineTo(-r*0.7,r*0.4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(r*0.45,0);ctx.lineTo(r*0.75,r*0.35);ctx.stroke();
+  // 首・頭
+  ctx.fillStyle='#d8a878';
+  ctx.beginPath();ctx.ellipse(0,-r*0.45,r*0.18,r*0.22,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(0,-r*0.82,r*0.38,0,Math.PI*2);ctx.fill();
+  // 帽子 (麦わら風)
+  ctx.fillStyle='#c89050';
+  ctx.beginPath();ctx.ellipse(0,-r*1.08,r*0.55,r*0.14,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#a87038';
+  ctx.fillRect(-r*0.28,-r*1.5,r*0.56,r*0.45);
+  // 目
+  ctx.fillStyle='#1a1008';
+  ctx.beginPath();ctx.arc(-r*0.12,-r*0.82,r*0.06,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(r*0.12,-r*0.82,r*0.06,0,Math.PI*2);ctx.fill();
+
+  // 近くで吠えられていたら警告リング
+  if(farmerNearBarks > 0){
+    const dFarmer = dog ? Math.hypot(dog.x-FARMER.x, dog.y-FARMER.y) : 99999;
+    if(dFarmer < FARMER_BARK_RANGE){
+      ctx.strokeStyle=`rgba(240,80,60,${0.5+Math.sin(totalT*6)*0.3})`;
+      ctx.lineWidth=3;
+      ctx.beginPath();ctx.arc(0,0, r*2.2, 0, Math.PI*2);ctx.stroke();
+      // 数字表示
+      ctx.fillStyle='rgba(255,255,255,0.9)';
+      ctx.font=`bold ${Math.round(14*sc)}px sans-serif`;
+      ctx.textAlign='center';
+      ctx.strokeStyle='rgba(120,20,10,0.9)'; ctx.lineWidth=3;
+      ctx.strokeText(`!${farmerNearBarks}/3`, 0, -r*1.9);
+      ctx.fillText(`!${farmerNearBarks}/3`, 0, -r*1.9);
+    }
+  }
+  ctx.restore();
+}
+
+function drawDog(dogE, customOpt){
+  const sc = wScale();
+  const s = w2s(dogE.x, dogE.y);
+  const spd = Math.hypot(dogE.vx, dogE.vy);
+  if(spd>5) dogFaceAngle = Math.atan2(dogE.vy, dogE.vx);
+  const fa = dogFaceAngle;
+  const custom = customOpt || dogE.custom || DOG_CUSTOM;
+  const szMul = custom.size==='s' ? 0.82 : (custom.size==='l' ? 1.18 : 1.0);
+  const R = dogE.size * szMul;
+  const r = R * sc;
+
+  ctx.save(); ctx.translate(s.x, s.y);
+
+  // 影
+  ctx.fillStyle='rgba(0,0,0,0.18)';
+  ctx.beginPath();ctx.ellipse(2*sc,5*sc,r*0.82,r*0.33,0,0,Math.PI*2);ctx.fill();
+
+  // 体
+  const bodyColor = custom.color;
+  // 暗くした色
+  const shadeColor = darken(bodyColor, 0.65);
+
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();ctx.ellipse(0,0,r*0.82,r*0.62,fa,0,Math.PI*2);ctx.fill();
+
+  // もよう
+  if(custom.pattern==='spot'){
+    ctx.fillStyle = shadeColor;
+    const spotPos = [[0.2,0.1,0.22],[-0.2,-0.2,0.18],[-0.1,0.3,0.16]];
+    spotPos.forEach(p=>{
+      const ang=fa;
+      const px=Math.cos(ang)*p[0]*r - Math.sin(ang)*p[1]*r;
+      const py=Math.sin(ang)*p[0]*r + Math.cos(ang)*p[1]*r;
+      ctx.beginPath();ctx.ellipse(px,py,r*p[2],r*p[2]*0.8,ang,0,Math.PI*2);ctx.fill();
+    });
+  } else if(custom.pattern==='belt'){
+    ctx.fillStyle = shadeColor;
+    const perp = fa+Math.PI/2;
+    const bw = r*0.22;
+    ctx.save();
+    ctx.rotate(fa);
+    ctx.fillRect(-r*0.25, -r*0.62, bw, r*1.24);
+    ctx.restore();
+  } else if(custom.pattern==='stripe'){
+    ctx.fillStyle = shadeColor;
+    ctx.save();
+    ctx.rotate(fa);
+    [-r*0.4, -r*0.15, r*0.1, r*0.35].forEach(x=>{
+      ctx.fillRect(x, -r*0.62, r*0.07, r*1.24);
+    });
+    ctx.restore();
+  }
+
+  // 頭
+  const hx=Math.cos(fa)*r*0.88, hy=Math.sin(fa)*r*0.88;
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();ctx.arc(hx,hy,r*0.56,0,Math.PI*2);ctx.fill();
+
+  // 耳
+  const perp=fa+Math.PI/2;
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.42, ey=hy+Math.sin(perp)*side*r*0.42;
+    ctx.fillStyle=shadeColor;
+    if(custom.ear==='floppy'){
+      ctx.beginPath();
+      ctx.ellipse(ex+Math.cos(fa)*r*-0.05, ey+Math.sin(fa)*r*-0.05, r*0.3, r*0.42, fa, 0, Math.PI*2);
+      ctx.fill();
+    } else if(custom.ear==='pointy'){
+      ctx.beginPath();
+      ctx.moveTo(ex,ey);
+      ctx.lineTo(ex+Math.cos(perp)*side*r*0.25+Math.cos(fa)*r*0.05, ey+Math.sin(perp)*side*r*0.25+Math.sin(fa)*r*0.05);
+      ctx.lineTo(ex+Math.cos(fa)*r*0.05, ey+Math.sin(fa)*r*0.05);
+      ctx.closePath();ctx.fill();
+    } else { // round
+      ctx.beginPath();
+      ctx.arc(ex+Math.cos(perp)*side*r*0.1, ey+Math.sin(perp)*side*r*0.1, r*0.22, 0, Math.PI*2);
+      ctx.fill();
+    }
+  });
+
+  // 鼻
+  ctx.fillStyle='#1a0808';
+  ctx.beginPath();ctx.arc(hx+Math.cos(fa)*r*0.43, hy+Math.sin(fa)*r*0.43, r*0.15, 0, Math.PI*2);ctx.fill();
+  // 目
+  [-1,1].forEach(side=>{
+    const ex=hx+Math.cos(perp)*side*r*0.27+Math.cos(fa)*r*0.16;
+    const ey=hy+Math.sin(perp)*side*r*0.27+Math.sin(fa)*r*0.16;
+    ctx.fillStyle='#100808';ctx.beginPath();ctx.arc(ex,ey,r*0.13,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.beginPath();ctx.arc(ex+r*0.04,ey-r*0.04,r*0.05,0,Math.PI*2);ctx.fill();
+  });
+  // しっぽ
+  const ta = fa + Math.PI + Math.sin(totalT*6)*0.7;
+  ctx.strokeStyle = bodyColor;
+  ctx.lineWidth = 2.8*sc; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(-Math.cos(fa)*r*0.65, -Math.sin(fa)*r*0.65);
+  ctx.quadraticCurveTo(Math.cos(ta)*r, Math.sin(ta)*r, Math.cos(ta)*r*1.6, Math.sin(ta)*r*1.6);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function darken(hex, f){
+  // "#rrggbb" → darkened by factor f
+  const m = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if(!m) return hex;
+  const r=parseInt(m[1],16), g=parseInt(m[2],16), b=parseInt(m[3],16);
+  const nr=Math.round(r*f), ng=Math.round(g*f), nb=Math.round(b*f);
+  return '#'+nr.toString(16).padStart(2,'0')+ng.toString(16).padStart(2,'0')+nb.toString(16).padStart(2,'0');
+}
+
+// ============== メインのdraw関数 ==============
+function draw(){
+  const cvs = document.getElementById('c');
+  if(!cvs) return;
+  const w = cvs.width, h = cvs.height;
+
+  // カメラ更新 (犬を中央に)
+  if(dog){
+    camX += (dog.x - camX)*0.15;
+    camY += (dog.y - camY)*0.15;
+  }
+
+  ctx.save();
+  ctx.clearRect(0,0,w,h);
+
+  drawBackground(w,h);
+  drawForest();
+  drawPonds();
+  drawTrees();
+  drawHuts();
+  drawPens();
+  drawFarmer();
+
+  // エンティティは y でソートして奥行き表現
+  const renderList = ENTITIES.slice().sort((a,b)=>a.y-b.y);
+  renderList.forEach(e=>{
+    if(!isVisible(e.x, e.y, 60)) return;
+    if(e.type==='dog'){
+      drawDog(e, DOG_CUSTOM);
+    } else if(e.type==='tractor'){
+      drawTractor(e);
+    } else if(e.type==='truck'){
+      drawTruck(e);
+    } else {
+      drawAnimal(e);
+    }
+  });
+
+  // 吠えエフェクト (バブル)
+  barks.forEach(b=>{
+    const [sx,sy] = w2s(b.x, b.y);
+    const rad = b.r * wScale();
+    ctx.strokeStyle = `rgba(255,255,180,${b.life})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(sx,sy,rad,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,180,${b.life*0.5})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(sx,sy,rad*0.6,0,Math.PI*2); ctx.stroke();
+  });
+
+  // オフスクリーンマーカー (画面外の柵・牧場主・狼の方向)
+  drawOffscreenMarkers(w, h);
+
+  ctx.restore();
+}
+
+function drawOffscreenMarkers(w, h){
+  if(!dog) return;
+  const cx = w/2, cy = h/2;
+  const margin = 40;
+  const mkMarker = (tx, ty, color, label, size)=>{
+    const [sx, sy] = w2s(tx, ty);
+    if(sx > margin && sx < w-margin && sy > margin && sy < h-margin) return;
+    const dx = sx - cx, dy = sy - cy;
+    const a = Math.atan2(dy, dx);
+    const maxX = (w/2 - margin) / Math.abs(Math.cos(a) || 0.001);
+    const maxY = (h/2 - margin) / Math.abs(Math.sin(a) || 0.001);
+    const d = Math.min(maxX, maxY);
+    const mx = cx + Math.cos(a)*d, my = cy + Math.sin(a)*d;
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.rotate(a);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(size*0.8, 0);
+    ctx.lineTo(-size*0.5, -size*0.5);
+    ctx.lineTo(-size*0.3, 0);
+    ctx.lineTo(-size*0.5, size*0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    if(label){
+      ctx.fillStyle='rgba(0,0,0,0.7)';
+      ctx.fillRect(mx-10, my+size*0.7, 20, 12);
+      ctx.fillStyle=color;
+      ctx.font='bold 9px monospace';
+      ctx.textAlign='center';
+      ctx.fillText(label, mx, my+size*0.7+9);
+    }
+  };
+  PENS.forEach(p=>{
+    mkMarker(p.cx, p.cy, '#ffe680', penEmoji(p.penType), 10);
+  });
+  if(FARMER) mkMarker(FARMER.x, FARMER.y, '#ffa0a0', '!', 10);
+  ENTITIES.forEach(e=>{
+    if(e.type==='wolf') mkMarker(e.x, e.y, '#ff6060', '狼', 9);
+  });
+}
+
+// ============== 入力ハンドリング ==============
+function getInputVector(){
+  let ix=0, iy=0;
+  if(joystickActive){
+    ix = joystickDX; iy = joystickDY;
+  } else {
+    if(keys['w']||keys['arrowup']) iy -= 1;
+    if(keys['s']||keys['arrowdown']) iy += 1;
+    if(keys['a']||keys['arrowleft']) ix -= 1;
+    if(keys['d']||keys['arrowright']) ix += 1;
+    const m = Math.hypot(ix,iy);
+    if(m>1){ ix/=m; iy/=m; }
+  }
+  return [ix,iy];
+}
+
+// ============== メインループ ==============
+function loop(ts){
+  if(!lastTs) lastTs = ts;
+  let dt = (ts - lastTs) / 1000;
+  if(dt > 0.1) dt = 0.1;  // 大きすぎるdtはクランプ
+  lastTs = ts;
+  totalT += dt;
+
+  // 吠え関連の更新
+  if(barkCooldown>0) barkCooldown = Math.max(0, barkCooldown - dt);
+  // 吠え効果は時間経過で回復
+  barkEffect = Math.min(1.0, barkEffect + dt*0.25);
+  // バブル減衰
+  barks.forEach(b=>{
+    b.life -= dt*1.8;
+    b.r += dt*400;
+  });
+  barks = barks.filter(b=>b.life>0);
+
+  // ゲーム中のみエンティティ更新
+  if(currentScene === 'game' && dog){
+    const [ix, iy] = getInputVector();
+    updateDog(dt, ix, iy);
+
+    // _remove フラグのものを除去
+    ENTITIES = ENTITIES.filter(e=>!e._remove);
+
+    // 全エンティティ (犬以外) を更新
+    for(const e of ENTITIES){
+      if(e.type === 'dog') continue;
+      updateEntity(e, dt);
+    }
+
+    // 狼スポーン管理
+    if(LEVEL_SPEC){
+      const activeWolves = ENTITIES.filter(e=>e.type==='wolf').length;
+      if(!GAME.nextWolfSpawn) GAME.nextWolfSpawn = totalT + LEVEL_SPEC.wolfInterval * (0.6 + Math.random()*0.8);
+      if(totalT >= GAME.nextWolfSpawn){
+        if(activeWolves < LEVEL_SPEC.wolfMaxConcurrent){
+          spawnWolf();
+        }
+        GAME.nextWolfSpawn = totalT + LEVEL_SPEC.wolfInterval * (0.6 + Math.random()*0.8);
+      }
+    }
+
+    updateHUDTargets();
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ============== シーン管理用変数 ==============
+let currentScene = 'menu';
+const origShowScene = showScene;
+showScene = function(s){
+  currentScene = s;
+  origShowScene(s);
+};
+
+// ============== メニュー画面 ==============
+function setupMenu(){
+  // 難易度ボタン
+  const diffGroup = document.getElementById('diff-group');
+  diffGroup.querySelectorAll('button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      diffGroup.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      GAME.difficulty = btn.dataset.diff;
+    });
+  });
+  // 初期: easyアクティブ
+  const easyBtn = diffGroup.querySelector('[data-diff="easy"]');
+  if(easyBtn) easyBtn.classList.add('active');
+
+  // ルームキー生成
+  GAME.roomKey = genRoomKey();
+  document.getElementById('room-key-mine').textContent = GAME.roomKey.split('').join(' ');
+
+  // はじめるボタン
+  document.getElementById('start-btn').addEventListener('click', ()=>{
+    GAME.level = 1;
+    GAME.prevAchievement = 1.0;
+    GAME.prevTime = 0;
+    updateWaitingUI();
+    showScene('waiting');
+  });
+
+  // デバッグボタン
+  document.getElementById('to-debug-btn').addEventListener('click', ()=>{
+    GAME._returnScene = 'menu';
+    openDebug();
+  });
+}
+
+// ============== 待機画面 (犬のカスタマイズ) ==============
+function setupWaiting(){
+  // 色ドット生成
+  const colors = document.getElementById('dog-colors');
+  DOG_COLORS.forEach(col=>{
+    const btn = document.createElement('button');
+    btn.className = 'color-dot';
+    btn.style.background = col;
+    btn.dataset.color = col;
+    if(col === DOG_CUSTOM.color) btn.classList.add('active');
+    btn.addEventListener('click', ()=>{
+      colors.querySelectorAll('.color-dot').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      DOG_CUSTOM.color = col;
+      drawDogPreview();
+    });
+    colors.appendChild(btn);
+  });
+  // 耳・模様・サイズ
+  const bindGroup = (groupId, field)=>{
+    const group = document.getElementById(groupId);
+    group.querySelectorAll('button').forEach(btn=>{
+      const val = btn.dataset[field] || btn.dataset.ear || btn.dataset.pattern || btn.dataset.size;
+      if(val === DOG_CUSTOM[field]) btn.classList.add('active');
+      btn.addEventListener('click', ()=>{
+        group.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        DOG_CUSTOM[field] = btn.dataset[field] || val;
+        drawDogPreview();
+      });
+    });
+  };
+  bindGroup('dog-ears', 'ear');
+  bindGroup('dog-patterns', 'pattern');
+  bindGroup('dog-sizes', 'size');
+
+  document.getElementById('back-to-menu-btn').addEventListener('click', ()=>showScene('menu'));
+
+  document.getElementById('go-field-btn').addEventListener('click', ()=>{
+    startLevel();
+    gameStartTs = totalT;
+    GAME.levelStartTime = totalT;
+    GAME.nextWolfSpawn = 0;
+    showScene('game');
+    resize();
+  });
+
+  document.getElementById('to-debug-btn2').addEventListener('click', ()=>{
+    GAME._returnScene = 'waiting';
+    openDebug();
+  });
+}
+
+function updateWaitingUI(){
+  document.getElementById('wait-level').textContent = 'LEVEL ' + GAME.level;
+  const dstr = GAME.difficulty==='easy'?'やさしい':(GAME.difficulty==='mid'?'ふつう':'むずかしい');
+  document.getElementById('wait-desc').textContent = `難易度: ${dstr} / 犬のすがたを選んでフィールドへ！`;
+  drawDogPreview();
+}
+
+function drawDogPreview(){
+  const cvs = document.getElementById('dog-preview-canvas');
+  if(!cvs) return;
+  const pctx = cvs.getContext('2d');
+  pctx.clearRect(0,0,cvs.width,cvs.height);
+  // 背景 (芝)
+  const g = pctx.createRadialGradient(80,80,10,80,80,80);
+  g.addColorStop(0,'#5a8a3a'); g.addColorStop(1,'#3a6a28');
+  pctx.fillStyle=g; pctx.fillRect(0,0,cvs.width,cvs.height);
+  // 犬を描画 (プレビュー用に専用コンテキスト)
+  pctx.save();
+  pctx.translate(80,80);
+  const dummy = {faceAngle: -Math.PI*0.5};
+  drawDogOnCtx(pctx, dummy, DOG_CUSTOM, 1.3);
+  pctx.restore();
+}
+
+// drawDog を任意のctxで呼べるようにラッパー
+function drawDogOnCtx(targetCtx, e, custom, scale){
+  // w2s 経由だと実ゲームの座標変換になるので手動でスクリーン位置指定
+  // 簡易: 専用の簡略描画を行う
+  const fa = e.faceAngle || 0;
+  const sc = scale * (custom.size==='s'?0.85:(custom.size==='l'?1.25:1.0));
+  const r = 14*sc;
+  const bodyColor = custom.color;
+  const shadeColor = darken(bodyColor, 0.65);
+  targetCtx.save();
+  targetCtx.rotate(fa + Math.PI*0.5);
+  // 体
+  targetCtx.fillStyle = bodyColor;
+  targetCtx.beginPath();
+  targetCtx.ellipse(0, 0, r*0.75, r*1.15, 0, 0, Math.PI*2);
+  targetCtx.fill();
+  // 模様
+  if(custom.pattern==='spot'){
+    targetCtx.fillStyle = shadeColor;
+    targetCtx.beginPath(); targetCtx.arc(-r*0.3, -r*0.2, r*0.22, 0, Math.PI*2); targetCtx.fill();
+    targetCtx.beginPath(); targetCtx.arc(r*0.3, r*0.3, r*0.2, 0, Math.PI*2); targetCtx.fill();
+  } else if(custom.pattern==='belt'){
+    targetCtx.fillStyle = shadeColor;
+    targetCtx.fillRect(-r*0.75, -r*0.15, r*1.5, r*0.3);
+  } else if(custom.pattern==='stripe'){
+    targetCtx.fillStyle = shadeColor;
+    for(let i=-2;i<=2;i++){
+      targetCtx.fillRect(-r*0.65, i*r*0.35-r*0.05, r*1.3, r*0.1);
+    }
+  }
+  // 頭 (上向き)
+  const hy = -r*0.95;
+  targetCtx.fillStyle = bodyColor;
+  targetCtx.beginPath(); targetCtx.arc(0, hy, r*0.55, 0, Math.PI*2); targetCtx.fill();
+  // 耳
+  targetCtx.fillStyle = shadeColor;
+  [-1,1].forEach(side=>{
+    const ex = side*r*0.45, ey = hy - r*0.1;
+    if(custom.ear==='floppy'){
+      targetCtx.beginPath();
+      targetCtx.ellipse(ex, ey+r*0.2, r*0.25, r*0.4, 0, 0, Math.PI*2);
+      targetCtx.fill();
+    } else if(custom.ear==='pointy'){
+      targetCtx.beginPath();
+      targetCtx.moveTo(ex, ey);
+      targetCtx.lineTo(ex + side*r*0.2, ey - r*0.3);
+      targetCtx.lineTo(ex - side*r*0.1, ey + r*0.05);
+      targetCtx.closePath(); targetCtx.fill();
+    } else {
+      targetCtx.beginPath();
+      targetCtx.arc(ex, ey, r*0.22, 0, Math.PI*2);
+      targetCtx.fill();
+    }
+  });
+  // 鼻・目
+  targetCtx.fillStyle='#1a0808';
+  targetCtx.beginPath(); targetCtx.arc(0, hy-r*0.35, r*0.13, 0, Math.PI*2); targetCtx.fill();
+  [-1,1].forEach(side=>{
+    targetCtx.fillStyle='#100808';
+    targetCtx.beginPath(); targetCtx.arc(side*r*0.22, hy-r*0.05, r*0.11, 0, Math.PI*2); targetCtx.fill();
+  });
+  // しっぽ
+  targetCtx.strokeStyle = bodyColor;
+  targetCtx.lineWidth = 2.8*sc; targetCtx.lineCap='round';
+  targetCtx.beginPath();
+  targetCtx.moveTo(0, r*0.9);
+  targetCtx.quadraticCurveTo(r*0.3, r*1.4, r*0.1, r*1.7);
+  targetCtx.stroke();
+  targetCtx.restore();
+}
+
+// ============== 結果画面 ==============
+function setupResult(){
+  document.getElementById('result-menu-btn').addEventListener('click', ()=>{
+    GAME.level = 1;
+    showScene('menu');
+  });
+  document.getElementById('result-next-btn').addEventListener('click', ()=>{
+    if(GAME._lastSuccess){
+      GAME.level += 1;
+    }
+    updateWaitingUI();
+    showScene('waiting');
+  });
+}
+
+// ============== デバッグ画面 ==============
+const DBG_TYPE_LABELS = {
+  white_sheep:'白羊', black_sheep:'黒羊', bh_sheep:'頭黒羊',
+  goose:'ガチョウ', chicken:'鶏', cow:'牛', pig:'豚',
+  wolf:'狼', dog:'犬', tractor:'トラクター', truck:'トラック'
+};
+let currentDbgTab = 'white_sheep';
+
+function openDebug(){
+  renderDebugTabs();
+  renderDebugBody(currentDbgTab);
+  showScene('debug');
+}
+
+function renderDebugTabs(){
+  const tabs = document.getElementById('debug-tabs');
+  tabs.innerHTML = '';
+  Object.keys(DBG_TYPE_LABELS).forEach(t=>{
+    const btn = document.createElement('button');
+    btn.className = 'dbg-tab' + (t===currentDbgTab?' active':'');
+    btn.textContent = DBG_TYPE_LABELS[t];
+    btn.addEventListener('click', ()=>{
+      currentDbgTab = t;
+      renderDebugTabs();
+      renderDebugBody(t);
+    });
+    tabs.appendChild(btn);
+  });
+}
+
+function renderDebugBody(t){
+  const body = document.getElementById('param-sections');
+  body.innerHTML = '';
+  const p = PARAMS[t];
+  if(!p){ body.textContent = 'データなし'; return; }
+
+  // 基本パラメーター
+  const basicSect = document.createElement('div');
+  basicSect.className = 'dbg-section';
+  basicSect.innerHTML = `<h3>${DBG_TYPE_LABELS[t]} - 基本パラメーター</h3>`;
+  const basicTable = document.createElement('table');
+  basicTable.className='dbg-table';
+  basicTable.innerHTML = '<tr><th>項目</th><th>min</th><th>max</th></tr>';
+  ['maxSpeed','maxForce','inertia','size','turnRate','wander','wanderTurn','goalAttract','goalR','waterSlow','baseSpeed'].forEach(k=>{
+    if(!p[k]) return;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${k}</td>`;
+    if(Array.isArray(p[k])){
+      tr.innerHTML += `<td><input type="number" step="0.01" value="${p[k][0]}" data-k="${k}" data-i="0"></td>
+                      <td><input type="number" step="0.01" value="${p[k][1]}" data-k="${k}" data-i="1"></td>`;
+    } else {
+      tr.innerHTML += `<td><input type="number" step="0.01" value="${p[k]}" data-k="${k}" data-scalar="1"></td><td>-</td>`;
+    }
+    basicTable.appendChild(tr);
+  });
+  basicSect.appendChild(basicTable);
+  body.appendChild(basicSect);
+
+  // 他の移動体への反応係数
+  if(p.react){
+    const reactSect = document.createElement('div');
+    reactSect.className='dbg-section';
+    reactSect.innerHTML = `<h3>他の移動体への反応 (正=斥力, 負=引力)</h3>
+      <div class="dbg-note">apS/apR: 接近する相対速度への反応 [強度, 範囲]<br>
+      prS/prR: 距離に対する反応 [強度, 範囲] (負で引力=群れる)<br>
+      flock/flockR: 群れ引力 [強度, 範囲]</div>`;
+    Object.entries(p.react).forEach(([grp, rc])=>{
+      const sub = document.createElement('div');
+      sub.innerHTML = `<h4 style="margin:10px 0 4px;color:#b8c890;font-size:12px;">→ ${DBG_TYPE_LABELS[grp]||grp}</h4>`;
+      const tbl = document.createElement('table');
+      tbl.className='dbg-table';
+      tbl.innerHTML = '<tr><th>項目</th><th>min</th><th>max</th></tr>';
+      ['apS','apR','prS','prR','flock','flockR','sep','sepR'].forEach(k=>{
+        if(!rc[k]) return;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${k}</td>`;
+        if(Array.isArray(rc[k])){
+          tr.innerHTML += `<td><input type="number" step="0.01" value="${rc[k][0]}" data-react="${grp}" data-k="${k}" data-i="0"></td>
+                          <td><input type="number" step="0.01" value="${rc[k][1]}" data-react="${grp}" data-k="${k}" data-i="1"></td>`;
+        }
+        tbl.appendChild(tr);
+      });
+      sub.appendChild(tbl);
+      reactSect.appendChild(sub);
+    });
+    body.appendChild(reactSect);
+  }
+
+  // 静止物・環境への反応
+  const envSect = document.createElement('div');
+  envSect.className='dbg-section';
+  envSect.innerHTML = `<h3>環境への反応</h3>`;
+  const envTbl = document.createElement('table');
+  envTbl.className='dbg-table';
+  envTbl.innerHTML = '<tr><th>項目</th><th>min</th><th>max</th></tr>';
+  ['tree','hut','fence','pond','forest','wander','goal','bark'].forEach(k=>{
+    if(!p[k]) return;
+    const env = p[k];
+    ['S','R'].forEach(suffix=>{
+      const key = (suffix==='S'?'str':'range');
+      const val = env[key];
+      if(!val) return;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${k}.${key}</td>`;
+      if(Array.isArray(val)){
+        tr.innerHTML += `<td><input type="number" step="0.01" value="${val[0]}" data-env="${k}" data-key="${key}" data-i="0"></td>
+                        <td><input type="number" step="0.01" value="${val[1]}" data-env="${k}" data-key="${key}" data-i="1"></td>`;
+      }
+      envTbl.appendChild(tr);
+    });
+  });
+  envSect.appendChild(envTbl);
+  body.appendChild(envSect);
+
+  // 入力変更ハンドラ
+  body.querySelectorAll('input[type="number"]').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const v = parseFloat(inp.value);
+      if(isNaN(v)) return;
+      const k = inp.dataset.k;
+      const i = inp.dataset.i !== undefined ? parseInt(inp.dataset.i) : null;
+      if(inp.dataset.react){
+        PARAMS[t].react[inp.dataset.react][k][i] = v;
+      } else if(inp.dataset.env){
+        PARAMS[t][inp.dataset.env][inp.dataset.key][i] = v;
+      } else if(inp.dataset.scalar){
+        PARAMS[t][k] = v;
+      } else {
+        PARAMS[t][k][i] = v;
+      }
+    });
+  });
+}
+
+function setupDebug(){
+  document.getElementById('dbg-close').addEventListener('click', ()=>{
+    showScene(GAME._returnScene || 'menu');
+  });
+  document.getElementById('dbg-load-default').addEventListener('click', ()=>{
+    if(!confirm('初期値に戻しますか？')) return;
+    Object.assign(PARAMS, JSON.parse(JSON.stringify(DEFAULT_PARAMS)));
+    resolveParams();
+    renderDebugBody(currentDbgTab);
+  });
+  document.getElementById('dbg-save-json').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(PARAMS, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'hitsuji_params.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 500);
+  });
+  document.getElementById('dbg-load-json').addEventListener('click', ()=>{
+    document.getElementById('dbg-load-file').click();
+  });
+  document.getElementById('dbg-load-file').addEventListener('change', (ev)=>{
+    const f = ev.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try {
+        const obj = JSON.parse(reader.result);
+        Object.keys(PARAMS).forEach(k=>{ delete PARAMS[k]; });
+        Object.assign(PARAMS, obj);
+        resolveParams();
+        renderDebugBody(currentDbgTab);
+        alert('読み込み完了');
+      } catch(e){
+        alert('JSONの解析に失敗: ' + e.message);
+      }
+    };
+    reader.readAsText(f);
+    ev.target.value = '';
+  });
+}
+
+// ============== 入力セットアップ ==============
+function setupInput(){
+  // キーボード
+  window.addEventListener('keydown', e=>{
+    const k = e.key.toLowerCase();
+    keys[k] = true;
+    if((k===' '||k==='b') && currentScene==='game'){
+      doBark();
+      e.preventDefault();
+    }
+  });
+  window.addEventListener('keyup', e=>{
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  // 吠えボタン
+  const barkBtn = document.getElementById('bark-btn');
+  if(barkBtn){
+    const bark = (e)=>{ e.preventDefault(); doBark(); };
+    barkBtn.addEventListener('click', bark);
+    barkBtn.addEventListener('touchstart', bark, {passive:false});
+  }
+
+  // ジョイスティック (タッチ)
+  const zone = document.getElementById('joystick-zone');
+  const base = document.getElementById('joystick-base');
+  const knob = document.getElementById('joystick-knob');
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  if(isMobile && zone){
+    zone.style.display='block';
+  }
+  let touchId = null;
+  let baseCx=0, baseCy=0;
+  const setKnob = (dx, dy)=>{
+    const maxD = 40;
+    const d = Math.hypot(dx, dy);
+    const clamped = d > maxD ? maxD : d;
+    const a = Math.atan2(dy, dx);
+    const kx = Math.cos(a)*clamped, ky = Math.sin(a)*clamped;
+    knob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+    joystickDX = Math.cos(a) * (clamped/maxD);
+    joystickDY = Math.sin(a) * (clamped/maxD);
+  };
+  const onStart = (e)=>{
+    const t = e.touches ? e.touches[0] : e;
+    const r = zone.getBoundingClientRect();
+    const lx = t.clientX - r.left, ly = t.clientY - r.top;
+    base.style.left = lx+'px'; base.style.top = ly+'px';
+    base.style.display='block'; knob.style.display='block';
+    baseCx = lx; baseCy = ly;
+    joystickActive = true;
+    touchId = e.touches ? t.identifier : 'mouse';
+    setKnob(0,0);
+    e.preventDefault();
+  };
+  const onMove = (e)=>{
+    if(!joystickActive) return;
+    let t = e;
+    if(e.touches){
+      for(const tc of e.touches){
+        if(tc.identifier === touchId){ t = tc; break; }
+      }
+    }
+    const r = zone.getBoundingClientRect();
+    const lx = t.clientX - r.left, ly = t.clientY - r.top;
+    setKnob(lx - baseCx, ly - baseCy);
+    e.preventDefault();
+  };
+  const onEnd = (e)=>{
+    joystickActive = false;
+    joystickDX = joystickDY = 0;
+    base.style.display='none'; knob.style.display='none';
+    touchId = null;
+  };
+  if(zone){
+    zone.addEventListener('touchstart', onStart, {passive:false});
+    zone.addEventListener('touchmove', onMove, {passive:false});
+    zone.addEventListener('touchend', onEnd);
+    zone.addEventListener('touchcancel', onEnd);
+  }
+}
+
+// ============== リサイズ ==============
+window.addEventListener('resize', resize);
+
+// ============== 初期化 ==============
+window.addEventListener('DOMContentLoaded', ()=>{
+  resize();
+  setupMenu();
+  setupWaiting();
+  setupResult();
+  setupDebug();
+  setupInput();
+  showScene('menu');
+  requestAnimationFrame(loop);
+});
+
+</script>
+</body>
+</html>
