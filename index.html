@@ -575,7 +575,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
     <button class="btn primary" id="start-btn">はじめる</button>
   </div>
   <button class="btn ghost" id="to-debug-1">⚙ デバッグ画面</button>
-  <div id="version-tag">v0.25 "DogDogGo"</div>
+  <div id="version-tag">v0.27 "DogDogGo"</div>
 </div>
 
 <!-- ====================== WAITING SCENE ====================== -->
@@ -898,8 +898,19 @@ const DEFAULT_PARAMS = {
     size:[10,12], maxSpeed:[340,340], inertia:[0,0], maxForce:[0,0],
     waterSlow:0.5, avoidForest:true,
     react:{
-      cow: {apS:[400,600], apR:[140,200],prS:[80,140],prR:[70,100]},
-      pig: {apS:[500,700], apR:[140,200],prS:[80,140],prR:[70,100]},
+      // 車両: 接近速度感知 + ごく近距離の強い斥力 (跳ねられ防止)
+      tractor:{apS:[2000,3000],apR:[160,220],prS:[1800,2600],prR:[60,90]},
+      truck:  {apS:[2400,3600],apR:[160,220],prS:[2200,3200],prR:[60,90]},
+      // 動物: ごく近い時だけ弱い斥力 (衝突回避)
+      sheep:  {prS:[120,180],prR:[28,40]},
+      black_sheep:{prS:[120,180],prR:[28,40]},
+      bh_sheep:   {prS:[120,180],prR:[28,40]},
+      goose:  {prS:[100,160],prR:[28,40]},
+      chicken:{prS:[100,160],prR:[22,35]},
+      cow:    {apS:[400,600],apR:[140,200],prS:[200,300],prR:[45,65]},
+      pig:    {apS:[500,700],apR:[140,200],prS:[180,260],prR:[40,58]},
+      wolf:   {prS:[600,900],prR:[80,120]},
+      farmer: {prS:[220,320],prR:[80,120]},
     },
     goalAttract:[0,0], goalR:[0,0], wander:[0,0], wanderTurn:[0,0],
     pond:{str:[0,0],range:[0,0]}, tree:{str:[0,0],range:[0,0]},
@@ -1210,24 +1221,43 @@ function buildField() {
   // 1. 柵 (動物種ごと) - ゲートはフィールド中心側に向ける
   const penTypes = Array.from(new Set(spec.types.map(t => PARAMS[t].pen).filter(p => p)));
   penTypes.forEach(penType => {
-    // margin=300: 柵半サイズ180 + 入口余裕120。森から十分離す
     const pos = randPos(300);
     if (!pos) return;
     const [x, y] = pos;
     const size = 180;
-    // ゲート方向: 中心 (0,0) に最も近い辺を選ぶ
+    // ゲート方向: 中心(0,0)向きで、かつゲート前(size+150)が空いている方向を優先
+    const dirs = [0,1,2,3]; // N,E,S,W
+    // dirベクトル: N=(0,-1), E=(1,0), S=(0,1), W=(-1,0)
+    const dirVec = [[0,-1],[1,0],[0,1],[-1,0]];
+    // 中心向きの候補
     const candidates = [];
     if (y > 0) candidates.push(0);
     if (y < 0) candidates.push(2);
     if (x > 0) candidates.push(3);
     if (x < 0) candidates.push(1);
-    const gateDir = candidates.length > 0
-      ? candidates[Math.floor(Math.random() * candidates.length)]
-      : Math.floor(Math.random() * 4);
-    PENS.push({
-      cx: x, cy: y, size, penType, gateDir,
-      gateWidth: 80,
-    });
+    // ゲート前が空いているかチェック
+    const GATE_CLEAR = 160;
+    function gateBlocked(dir) {
+      const [gx, gy] = dirVec[dir];
+      const checkX = x + gx * (size + GATE_CLEAR);
+      const checkY = y + gy * (size + GATE_CLEAR);
+      // 森チェック
+      if (distToForestEdge(checkX, checkY) < 40) return true;
+      // 他の柵チェック
+      for (const pen2 of PENS) {
+        if (Math.abs(checkX-pen2.cx) < pen2.size+60 && Math.abs(checkY-pen2.cy) < pen2.size+60) return true;
+      }
+      // 小屋チェック
+      for (const h of HUTS) {
+        if (Math.abs(checkX-h.x) < h.w/2+60 && Math.abs(checkY-h.y) < h.h/2+60) return true;
+      }
+      return false;
+    }
+    const open = candidates.filter(d => !gateBlocked(d));
+    const gateDir = open.length > 0
+      ? open[Math.floor(Math.random() * open.length)]
+      : (candidates.length > 0 ? candidates[Math.floor(Math.random()*candidates.length)] : Math.floor(Math.random()*4));
+    PENS.push({ cx: x, cy: y, size, penType, gateDir, gateWidth: 80 });
   });
 
   // 2. 池
@@ -1317,10 +1347,10 @@ function distToSegment(px, py, x1, y1, x2, y2) {
   return { d: Math.hypot(px-cx, py-cy), cx, cy };
 }
 
-function penWallForce(pen, x, y, isVehicle) {
+function penWallForce(pen, x, y, isVehicle, avoidDist) {
   const walls = penWalls(pen);
   let fx = 0, fy = 0;
-  const avoid = isVehicle ? 40 : 30;
+  const avoid = avoidDist || (isVehicle ? 40 : 30);
   walls.forEach(w => {
     const r = distToSegment(x, y, w.x1, w.y1, w.x2, w.y2);
     if (r.d < avoid && r.d > 0.1) {
@@ -1331,7 +1361,6 @@ function penWallForce(pen, x, y, isVehicle) {
   });
   // 車両はゲートも通さない
   if (isVehicle) {
-    // 4辺全てを壁として扱う (ゲートも)
     const hh = pen.size;
     const fullSides = [
       [pen.cx-hh, pen.cy-hh, pen.cx+hh, pen.cy-hh],
@@ -1493,28 +1522,33 @@ function computeForces(e, dt) {
     const mx = e.treeRange + t.r + e.size;
     if (Math.abs(dx) > mx || Math.abs(dy) > mx) continue;
     const d = Math.hypot(dx, dy);
-    if (d > 0.1 && d < mx) {
-      const s = e.treeStr * (1 - d/mx) / (d + 1);
+    const dEdge = d - t.r;
+    if (d > 0.1 && dEdge < e.treeRange) {
+      const t2 = Math.max(0, 1 - dEdge/e.treeRange);
+      const s = e.treeStr * t2 / (dEdge + 1);
       fx -= dx/d * s; fy -= dy/d * s;
     }
   }
   // 小屋
   for (const h of HUTS) {
     const dx = h.x - e.x, dy = h.y - e.y;
-    const mx = e.hutRange + Math.max(h.w, h.h)/2 + e.size;
+    const halfSize = Math.max(h.w, h.h) / 2;
+    const mx = e.hutRange + halfSize + e.size;
     if (Math.abs(dx) > mx || Math.abs(dy) > mx) continue;
     const d = Math.hypot(dx, dy);
-    if (d > 0.1 && d < mx) {
-      const s = e.hutStr * (1 - d/mx) / (d + 1);
+    const dEdge = d - halfSize;
+    if (d > 0.1 && dEdge < e.hutRange) {
+      const t = Math.max(0, 1 - dEdge/e.hutRange);
+      const s = e.hutStr * t / (dEdge + 1);
       fx -= dx/d * s; fy -= dy/d * s;
     }
   }
-  // 柵
+  // 柵 (壁外縁からの距離で計算: penWallForce は既に外縁距離を使う)
   const isVehicle = e.type === 'tractor' || e.type === 'truck';
   for (const pen of PENS) {
     const dx = pen.cx - e.x, dy = pen.cy - e.y;
-    if (Math.abs(dx) > pen.size + 120 || Math.abs(dy) > pen.size + 120) continue;
-    const [wfx, wfy] = penWallForce(pen, e.x, e.y, isVehicle);
+    if (Math.abs(dx) > pen.size + e.fenceRange + 20 || Math.abs(dy) > pen.size + e.fenceRange + 20) continue;
+    const [wfx, wfy] = penWallForce(pen, e.x, e.y, isVehicle, e.fenceRange);
     fx += wfx * e.fenceStr; fy += wfy * e.fenceStr;
   }
   // 池
@@ -1523,8 +1557,13 @@ function computeForces(e, dt) {
     const mx = e.pondRange + p.r + e.size;
     if (Math.abs(dx) > mx || Math.abs(dy) > mx) continue;
     const d = Math.hypot(dx, dy);
-    if (d > 0.1 && d < mx) {
-      const s = e.pondStr * (1 - d/mx) / (d + 1);
+    if (d < 0.1) continue;
+    const dEdge = d - p.r;  // 負 = 池の内側
+    // 内側は dEdge=0 と同じ扱い (最大強度)、外側は距離に応じて減衰
+    const tDist = Math.max(0, dEdge);  // 内側はすべて0扱い
+    if (tDist < e.pondRange) {
+      const falloff = Math.max(0, 1 - tDist/e.pondRange);
+      const s = e.pondStr * falloff / (tDist + 1);
       fx -= dx/d * s; fy -= dy/d * s;
     }
   }
@@ -1571,7 +1610,7 @@ function computeForces(e, dt) {
       const d = Math.hypot(dx, dy);
       if (d > 0.5 && d < BARK_RANGE) {
         // life=1が吠えた瞬間。初期(life>0.85)は5×barkEffect倍の強力な斥力
-        const instantMul = b.life > 0.85 ? BARK_INSTANT_MUL : b.life * barkEffect;
+        const instantMul = b.life * BARK_INSTANT_MUL;
         const s = 2400 * instantMul * (1 - d/BARK_RANGE) / (d + 1);
         fx += dx/d * s; fy += dy/d * s;
       }
@@ -1811,7 +1850,23 @@ function startLevel() {
   GAME.nextWolfSpawn = totalT + LEVEL_SPEC.wolfInterval * 0.5;
 
   // 犬: フィールド中心近く
-  dog = makeEntity('dog', 0, 0);
+  // 犬: 池・柵を避けた安全な初期位置
+  let dogX = 0, dogY = 0;
+  for (let tries = 0; tries < 100; tries++) {
+    const a = Math.random() * Math.PI*2;
+    const rr = Math.random() * 200 + 60;
+    const tx = Math.cos(a)*rr, ty = Math.sin(a)*rr;
+    let safe = true;
+    for (const p of PONDS) {
+      if (Math.hypot(tx-p.x, ty-p.y) < p.r + 30) { safe = false; break; }
+    }
+    if (!safe) continue;
+    for (const pen of PENS) {
+      if (Math.abs(tx-pen.cx) < pen.size+20 && Math.abs(ty-pen.cy) < pen.size+20) { safe = false; break; }
+    }
+    if (safe) { dogX = tx; dogY = ty; break; }
+  }
+  dog = makeEntity('dog', dogX, dogY);
   ENTITIES.push(dog);
 
   // 動物をスポーン: 全障害物(柵・小屋・木・池・牧場主)を避ける
@@ -2188,12 +2243,14 @@ function drawSheepShape(a, r, sc, ang) {
     ctx.ellipse(ex, ey, r*0.13, r*0.05, perp, 0, Math.PI*2);
     ctx.fill();
   });
-  // 目
+  // 目 (シンプルな丸目 + ハイライト)
   [-1, 1].forEach(side => {
     const ex = fX + Math.cos(ang)*r*0.1 + Math.cos(perp)*side*r*0.22;
     const ey = fY + Math.sin(ang)*r*0.1 + Math.sin(perp)*side*r*0.22;
     ctx.fillStyle = st.faceBlack ? '#f0d0a0' : '#1a0a06';
     ctx.beginPath(); ctx.arc(ex, ey, r*0.12, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(ex + r*0.045, ey - r*0.045, r*0.045, 0, Math.PI*2); ctx.fill();
   });
   // 頭黒羊: 角 (curl horn)
   if (a.type === 'bh_sheep') {
@@ -2242,19 +2299,21 @@ function drawGooseShape(a, r, sc, ang) {
   // 頭
   ctx.fillStyle = st.body;
   ctx.beginPath(); ctx.arc(nkX, nkY, r*0.4, 0, Math.PI*2); ctx.fill();
-  // くちばし
+  // くちばし (頂点が前方, 底辺が頭側)
   ctx.fillStyle = '#e0a020';
   ctx.beginPath();
-  ctx.moveTo(nkX + Math.cos(ang)*r*0.4, nkY + Math.sin(ang)*r*0.4);
-  ctx.lineTo(nkX + Math.cos(ang+0.3)*r*0.72, nkY + Math.sin(ang+0.3)*r*0.72);
-  ctx.lineTo(nkX + Math.cos(ang-0.3)*r*0.72, nkY + Math.sin(ang-0.3)*r*0.72);
+  ctx.moveTo(nkX + Math.cos(ang)*r*0.72, nkY + Math.sin(ang)*r*0.72);  // 先端(前方)
+  ctx.lineTo(nkX + Math.cos(ang)*r*0.38 + Math.cos(perp)*r*0.14, nkY + Math.sin(ang)*r*0.38 + Math.sin(perp)*r*0.14);
+  ctx.lineTo(nkX + Math.cos(ang)*r*0.38 - Math.cos(perp)*r*0.14, nkY + Math.sin(ang)*r*0.38 - Math.sin(perp)*r*0.14);
   ctx.closePath(); ctx.fill();
-  // 目
+  // 目 (ハイライト付き)
   [-1, 1].forEach(side => {
     const ex = nkX + Math.cos(perp)*side*r*0.18;
     const ey = nkY + Math.sin(perp)*side*r*0.18;
     ctx.fillStyle = '#1a0a06';
     ctx.beginPath(); ctx.arc(ex, ey, r*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.arc(ex + r*0.03, ey - r*0.03, r*0.03, 0, Math.PI*2); ctx.fill();
   });
   ctx.restore();
 }
@@ -2293,24 +2352,31 @@ function drawChickenShape(a, r, sc, ang) {
   const hx = Math.cos(ang)*r*0.7, hy = Math.sin(ang)*r*0.7;
   ctx.fillStyle = st.body;
   ctx.beginPath(); ctx.arc(hx, hy, r*0.44, 0, Math.PI*2); ctx.fill();
-  // とさか
+  // とさか (頭の中心-forward方向に配置)
   ctx.fillStyle = st.comb;
   ctx.beginPath();
-  ctx.arc(hx + Math.cos(ang-Math.PI/2)*r*0.3, hy + Math.sin(ang-Math.PI/2)*r*0.3, r*0.2, 0, Math.PI*2);
+  // とさかは頭の前方上部 (ang方向の前, perpに対して中央)
+  ctx.arc(hx + Math.cos(ang)*r*0.2, hy + Math.sin(ang)*r*0.2, r*0.22, 0, Math.PI*2);
   ctx.fill();
-  // くちばし
+  // くちばし (頭の前方中央から外向きに伸びる)
   ctx.fillStyle = st.beak;
+  const bkTip = r*0.72;
+  const bkBase = r*0.44;
   ctx.beginPath();
-  ctx.moveTo(hx + Math.cos(ang)*r*0.44, hy + Math.sin(ang)*r*0.44);
-  ctx.lineTo(hx + Math.cos(ang+0.35)*r*0.7, hy + Math.sin(ang+0.35)*r*0.7);
-  ctx.lineTo(hx + Math.cos(ang-0.35)*r*0.7, hy + Math.sin(ang-0.35)*r*0.7);
+  // 頂点: 前方
+  ctx.moveTo(hx + Math.cos(ang)*bkTip, hy + Math.sin(ang)*bkTip);
+  // 底辺: 頭の縁2点 (perpに対して左右対称)
+  ctx.lineTo(hx + Math.cos(ang)*bkBase + Math.cos(perp)*r*0.18, hy + Math.sin(ang)*bkBase + Math.sin(perp)*r*0.18);
+  ctx.lineTo(hx + Math.cos(ang)*bkBase - Math.cos(perp)*r*0.18, hy + Math.sin(ang)*bkBase - Math.sin(perp)*r*0.18);
   ctx.closePath(); ctx.fill();
-  // 目
+  // 目 (ハイライト付き)
   [-1, 1].forEach(side => {
     const ex = hx + Math.cos(perp)*side*r*0.22 + Math.cos(ang)*r*0.15;
     const ey = hy + Math.sin(perp)*side*r*0.22 + Math.sin(ang)*r*0.15;
     ctx.fillStyle = '#1a0808';
     ctx.beginPath(); ctx.arc(ex, ey, r*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath(); ctx.arc(ex + r*0.04, ey - r*0.04, r*0.04, 0, Math.PI*2); ctx.fill();
   });
   ctx.restore();
 }
@@ -2377,7 +2443,9 @@ function drawCowShape(a, r, sc, ang) {
     const ex = hx + Math.cos(perp)*side*r*0.22 + Math.cos(ang)*r*0.08;
     const ey = hy + Math.sin(perp)*side*r*0.22 + Math.sin(ang)*r*0.08;
     ctx.fillStyle = '#1a0a06';
-    ctx.beginPath(); ctx.arc(ex, ey, r*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex, ey, r*0.09, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(ex + r*0.035, ey - r*0.035, r*0.035, 0, Math.PI*2); ctx.fill();
   });
   // 尻尾 (ゆらゆら)
   const ta = ang + Math.PI + Math.sin(totalT*3 + a.phase)*0.4;
@@ -2431,7 +2499,9 @@ function drawPigShape(a, r, sc, ang) {
     const ex = hx + Math.cos(perp)*side*r*0.2 + Math.cos(ang)*r*0.05;
     const ey = hy + Math.sin(perp)*side*r*0.2 + Math.sin(ang)*r*0.05;
     ctx.fillStyle = '#1a0a06';
-    ctx.beginPath(); ctx.arc(ex, ey, r*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex, ey, r*0.09, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(ex + r*0.035, ey - r*0.035, r*0.035, 0, Math.PI*2); ctx.fill();
   });
   // くるりんしっぽ (回転)
   const tailSpin = totalT*2 + a.phase;
@@ -2480,6 +2550,8 @@ function drawWolfShape(w, r, sc, ang) {
     ctx.beginPath(); ctx.arc(ex, ey, r*0.15, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#0a0800';
     ctx.beginPath(); ctx.arc(ex, ey, r*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.arc(ex + r*0.035, ey - r*0.035, r*0.03, 0, Math.PI*2); ctx.fill();
   });
   // しっぽ (大きく振る)
   const ta = ang + Math.PI + Math.sin(totalT*5 + w.phase) * 0.5;
@@ -3415,7 +3487,7 @@ function loop(ts) {
   // 吠え関係の更新
   if (barkCooldown > 0) barkCooldown = Math.max(0, barkCooldown - dt);
   barkEffect = Math.min(1.0, barkEffect + dt * 0.2);
-  barks.forEach(b => { b.life -= dt * 1.0; b.r += dt * 280; });
+  barks.forEach(b => { b.life -= dt * 2.0; b.r += dt * 280; });
   barks = barks.filter(b => b.life > 0);
 
   if (currentScene === 'game' && dog) {
