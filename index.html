@@ -316,7 +316,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
   padding: 3px 8px;
   border-radius: 4px;
 }
-.target-emoji { font-size: 14px; }
+.target-icon { width: 28px; height: 28px; display: inline-block; vertical-align: middle; }
 .target-count { font-family: ui-monospace, monospace; font-size: 12px; color: var(--green-bright); }
 .target-count.full { color: var(--yellow); }
 
@@ -575,7 +575,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
     <button class="btn primary" id="start-btn">はじめる</button>
   </div>
   <button class="btn ghost" id="to-debug-1">⚙ デバッグ画面</button>
-  <div id="version-tag">v0.19 "DogDogGo"</div>
+  <div id="version-tag">v0.25 "DogDogGo"</div>
 </div>
 
 <!-- ====================== WAITING SCENE ====================== -->
@@ -610,7 +610,6 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
         <button class="opt-btn active" data-pat="solid">むじ</button>
         <button class="opt-btn" data-pat="spot">ぶち</button>
         <button class="opt-btn" data-pat="belt">おび</button>
-        <button class="opt-btn" data-pat="stripe">しま</button>
       </div>
     </div>
     <div class="custom-row">
@@ -649,7 +648,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
     <div id="joystick-knob"></div>
   </div>
   <button id="bark-btn">🐾<br>吠える</button>
-  <div id="bark-meter">効果 <span id="bark-pct">100%</span></div>
+
   <div id="key-hint">WASD/矢印=移動 ・ Space=吠える</div>
   <div id="farmer-alert">牧場主に近づいている！ あと<span id="farmer-bark-count">3</span>回吠えたらゲーム終了</div>
 </div>
@@ -679,6 +678,11 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
       <button class="btn ghost small" id="dbg-load-json">読込</button>
       <button class="btn small" id="dbg-close">← 戻る</button>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--text);">
+      <label>吠え斥力倍率:</label>
+      <input type="number" id="dbg-bark-mul" value="100" min="1" max="5000" step="10" style="width:80px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;">
+      <span style="color:var(--text-faint)">（デフォルト100）</span>
+    </div>
   </div>
   <div class="debug-tabs" id="debug-tabs"></div>
   <div class="debug-body" id="debug-body"></div>
@@ -690,7 +694,12 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
 // ============================================================
 // CONSTANTS & PALETTE
 // ============================================================
-const VIEW_W = 720;  // 仮想ワールド単位の表示幅
+let VIEW_W = 720;  // 仮想ワールド単位の表示幅
+// スマホ(縦長)は視界を狭く、PC(横長)は広く
+function updateViewW(){
+  const isMobile = window.innerWidth < window.innerHeight;
+  VIEW_W = isMobile ? 560 : 960;
+}
 const PIXEL = 4;     // ドット絵の1ピクセル = 4ワールド単位
 const TICK = 1/60;
 
@@ -727,6 +736,7 @@ const DOG_COLORS = [
 ];
 
 const BARK_RANGE = 360;
+let BARK_INSTANT_MUL = 100;  // 吠え瞬間の斥力倍率 (デバッグ設定可)
 const FARMER_BARK_RANGE = 140;  // 近距離で吠えないとカウントされない
 
 // ============================================================
@@ -758,7 +768,7 @@ const DEFAULT_PARAMS = {
     forest:{str:[600,900],range:[140,200]},
   },
   black_sheep: {
-    label:'黒羊', group:'sheep', pen:'sheep',
+    label:'黒羊', group:'sheep', pen:'black_sheep',
     size:[14,18], maxSpeed:[240,310], inertia:[0.82,0.92], maxForce:[1200,1800],
     waterSlow:0.5, avoidForest:true,
     react:'INHERIT:white_sheep',
@@ -768,7 +778,7 @@ const DEFAULT_PARAMS = {
     forest:{str:[600,900],range:[140,200]},
   },
   bh_sheep: {
-    label:'頭黒羊', group:'sheep', pen:'sheep',
+    label:'頭黒羊', group:'sheep', pen:'bh_sheep',
     size:[14,18], maxSpeed:[240,310], inertia:[0.82,0.92], maxForce:[1200,1800],
     waterSlow:0.5, avoidForest:true,
     react:'INHERIT:white_sheep',
@@ -885,7 +895,7 @@ const DEFAULT_PARAMS = {
   },
   dog: {
     label:'犬', group:'dog', pen:null,
-    size:[14,16], maxSpeed:[340,340], inertia:[0,0], maxForce:[0,0],
+    size:[10,12], maxSpeed:[340,340], inertia:[0,0], maxForce:[0,0],
     waterSlow:0.5, avoidForest:true,
     react:{
       cow: {apS:[400,600], apR:[140,200],prS:[80,140],prR:[70,100]},
@@ -898,7 +908,7 @@ const DEFAULT_PARAMS = {
   },
   tractor: {
     label:'トラクター', group:'tractor', pen:null,
-    size:[22,26], maxSpeed:[80,110], inertia:[0.95,0.97], maxForce:[260,340],
+    size:[30,36], maxSpeed:[80,110], inertia:[0.95,0.97], maxForce:[260,340],
     waterSlow:0.3, avoidForest:true, turnRate:1.0,
     react:{
       sheep:{prS:[300,450],prR:[80,120]}, goose:{prS:[300,450],prR:[80,120]},
@@ -914,7 +924,7 @@ const DEFAULT_PARAMS = {
   },
   truck: {
     label:'トラック', group:'truck', pen:null,
-    size:[20,24], maxSpeed:[110,150], inertia:[0.93,0.96], maxForce:[300,400],
+    size:[28,34], maxSpeed:[110,150], inertia:[0.93,0.96], maxForce:[300,400],
     waterSlow:0.3, avoidForest:true, turnRate:1.2, stopNearHut:true,
     react:{
       sheep:{prS:[300,450],prR:[80,120]}, goose:{prS:[300,450],prR:[80,120]},
@@ -987,7 +997,7 @@ let joyX = 0, joyY = 0, joyActive = false;
 
 // canvas
 const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d');
 let CW = 800, CH = 800;
 ctx.imageSmoothingEnabled = false;
 
@@ -1023,6 +1033,7 @@ function isVisible(wx, wy, m=80) {
 }
 
 function resize() {
+  updateViewW();
   const dpr = window.devicePixelRatio || 1;
   CW = window.innerWidth || document.documentElement.clientWidth || 400;
   CH = window.innerHeight || document.documentElement.clientHeight || 600;
@@ -1045,7 +1056,7 @@ function showScene(name) {
   const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   document.getElementById('joystick').classList.toggle('visible', isGame && isMobile);
   document.getElementById('bark-btn').classList.toggle('visible', isGame);
-  document.getElementById('bark-meter').classList.toggle('visible', isGame);
+
   document.getElementById('key-hint').style.display = (isGame && !isMobile) ? 'block' : 'none';
   if (isGame) {
     resize();
@@ -1223,7 +1234,9 @@ function buildField() {
   for (let i = 0; i < spec.ponds; i++) {
     const pos = randPos(150);
     if (!pos) continue;
-    PONDS.push({ x: pos[0], y: pos[1], r: 60 + Math.random()*50 });
+    const pr = 55 + Math.random()*120;  // 半径 55-175
+    const ry = pr * (0.4 + Math.random()*0.8);  // 縦横比 0.4-1.2
+    PONDS.push({ x: pos[0], y: pos[1], r: pr, ry: ry });
   }
 
   // 3. 小屋
@@ -1232,8 +1245,8 @@ function buildField() {
     if (!pos) continue;
     HUTS.push({
       x: pos[0], y: pos[1],
-      w: 70 + Math.random()*40,
-      h: 70 + Math.random()*40,
+      w: 60 + Math.random()*110,
+      h: 60 + Math.random()*110,
       size: 50,
       style: Math.random() < 0.5 ? 'hut' : 'house',
       rot: Math.floor(Math.random()*4) * Math.PI/2,
@@ -1251,10 +1264,9 @@ function buildField() {
     });
   }
 
-  // 5. 牧場主 (中央寄りのランダム位置)
-  const fa = Math.random() * Math.PI * 2;
-  const fr = Math.random() * usableR * 0.4;
-  FARMER = { x: Math.cos(fa) * fr, y: Math.sin(fa) * fr };
+  // 5. 牧場主 (設置物を避けて配置)
+  const farmerPos = randPos(80) || [0, 0];
+  FARMER = { x: farmerPos[0], y: farmerPos[1] };
 }
 
 // ============================================================
@@ -1551,14 +1563,16 @@ function computeForces(e, dt) {
     }
   }
 
-  // 吠えの斥力 (dogからの)
-  if (barkEffect > 0 && dog && e.type !== 'dog' && e.type !== 'tractor' && e.type !== 'truck') {
+  // 吠えの斥力 (dogからの) - 吠えた瞬間は5×barkEffect倍
+  if (dog && e.type !== 'dog' && e.type !== 'tractor' && e.type !== 'truck') {
     for (const b of barks) {
       if (b.life <= 0) continue;
       const dx = e.x - b.x, dy = e.y - b.y;
       const d = Math.hypot(dx, dy);
       if (d > 0.5 && d < BARK_RANGE) {
-        const s = 1600 * b.life * (1 - d/BARK_RANGE) / (d + 1);
+        // life=1が吠えた瞬間。初期(life>0.85)は5×barkEffect倍の強力な斥力
+        const instantMul = b.life > 0.85 ? BARK_INSTANT_MUL : b.life * barkEffect;
+        const s = 2400 * instantMul * (1 - d/BARK_RANGE) / (d + 1);
         fx += dx/d * s; fy += dy/d * s;
       }
     }
@@ -1634,10 +1648,13 @@ function updateEntity(e, dt) {
   // 速度上限
   const speed = Math.hypot(e.vx, e.vy);
   let maxS = e.maxSpeed;
-  // 池で減速
-  for (const p of PONDS) {
-    const d = Math.hypot(p.x - e.x, p.y - e.y);
-    if (d < p.r) { maxS *= P.waterSlow; break; }
+  // 池で減速 (ガチョウ以外)
+  if (P.group !== 'goose') {
+    for (const p of PONDS) {
+      const rx = p.r, ry = p.ry || p.r * 0.7;
+      const dx = (p.x - e.x) / rx, dy = (p.y - e.y) / ry;
+      if (dx*dx + dy*dy < 1) { maxS *= P.waterSlow; break; }
+    }
   }
   if (speed > maxS) {
     e.vx = e.vx/speed * maxS;
@@ -1724,8 +1741,15 @@ function updateDog(dt, ix, iy) {
 
   // 池で減速
   for (const p of PONDS) {
-    if (Math.hypot(p.x - dog.x, p.y - dog.y) < p.r) {
-      dog.vx *= 0.6; dog.vy *= 0.6;
+    const rx = p.r, ry = p.ry || p.r * 0.7;
+    const dx2 = (p.x - dog.x) / rx, dy2 = (p.y - dog.y) / ry;
+    if (dx2*dx2 + dy2*dy2 < 1) {
+      const target2 = target * 0.5;
+      if (Math.hypot(dog.vx, dog.vy) > target2) {
+        const s2 = Math.hypot(dog.vx, dog.vy);
+        dog.vx = dog.vx/s2 * target2;
+        dog.vy = dog.vy/s2 * target2;
+      }
       break;
     }
   }
@@ -1976,6 +2000,39 @@ function endGame() {
   showScene('result');
 }
 
+// HUDアイコン: 小さなcanvasに動物の図形を描画
+function drawHUDIcon(canvasEl, penType) {
+  const ic = canvasEl.getContext('2d');
+  if (!ic) return;
+  const w = canvasEl.width, h = canvasEl.height;
+  // 背景
+  ic.fillStyle = 'rgba(10,26,15,0.7)';
+  ic.beginPath(); ic.roundRect ? ic.roundRect(0,0,w,h,4) : ic.rect(0,0,w,h); ic.fill();
+  // ctx を ic に差し替えて shape 関数を呼ぶ
+  const savedCtx = ctx;
+  ctx = ic;
+  const typeMap = {
+    sheep:'white_sheep', black_sheep:'black_sheep', bh_sheep:'bh_sheep',
+    goose:'goose', chicken:'chicken', cow:'cow', pig:'pig',
+  };
+  const animalType = typeMap[penType] || 'white_sheep';
+  const fakeA = { type: animalType, vx:0, vy:0, phase:0, variant:2, heading:-Math.PI/2 };
+  const r = w * 0.36;
+  const ang = -Math.PI/2;
+  ctx.save();
+  ctx.translate(w/2, h/2 + r*0.1);
+  const g = PARAMS[animalType] ? PARAMS[animalType].group : 'sheep';
+  try {
+    if (g==='sheep') drawSheepShape(fakeA, r, 1, ang);
+    else if (g==='goose') drawGooseShape(fakeA, r, 1, ang);
+    else if (g==='chicken') drawChickenShape(fakeA, r, 1, ang);
+    else if (g==='cow') drawCowShape(fakeA, r, 1, ang);
+    else if (g==='pig') drawPigShape(fakeA, r, 1, ang);
+  } catch(e) {}
+  ctx.restore();
+  ctx = savedCtx;
+}
+
 function updateHUD() {
   if (currentScene !== 'game' || !LEVEL_SPEC) return;
   document.getElementById('hud-level').textContent = GAME.level;
@@ -2001,12 +2058,19 @@ function updateHUD() {
   t.innerHTML = '';
   for (const p in totalBy) {
     const got = insideBy[p] || 0, need = totalBy[p];
-    const emoji = p==='sheep'?'🐑':p==='goose'?'🪿':p==='chicken'?'🐔':p==='cow'?'🐄':p==='pig'?'🐖':'?';
     const full = got >= need;
     const row = document.createElement('div');
     row.className = 'target-row';
-    row.innerHTML = `<span class="target-emoji">${emoji}</span>
-      <span class="target-count ${full?'full':''}">${got}/${need}</span>`;
+    // canvas アイコン
+    const ic = document.createElement('canvas');
+    ic.className = 'target-icon';
+    ic.width = 28; ic.height = 28;
+    drawHUDIcon(ic, p);
+    row.appendChild(ic);
+    const span = document.createElement('span');
+    span.className = 'target-count' + (full?' full':'');
+    span.textContent = `${got}/${need}`;
+    row.appendChild(span);
     t.appendChild(row);
   }
 
@@ -2092,40 +2156,56 @@ function drawAnimal(a) {
 
 function drawSheepShape(a, r, sc, ang) {
   const st = ANIMAL_STYLE[a.type];
-  // もふもふの揺れ
   const wb = Math.sin((totalT*3) + a.phase) * 0.35;
   ctx.fillStyle = st.wool;
   ctx.beginPath(); ctx.ellipse(0, 0, r+wb*sc, r*0.8, 0, 0, Math.PI*2); ctx.fill();
   ctx.strokeStyle = 'rgba(140,120,100,0.25)'; ctx.lineWidth = 0.7*sc; ctx.stroke();
-  // もふもふ
-  ctx.fillStyle = 'rgba(255,255,255,0.18)';
-  for (let i = 0; i < 5; i++) {
-    const pa = (i/5) * Math.PI*2 + totalT*0.5 + a.phase;
-    ctx.beginPath();
-    ctx.arc(Math.cos(pa)*(r-2*sc)*0.52, Math.sin(pa)*(r-2*sc)*0.52, r*0.26, 0, Math.PI*2);
-    ctx.fill();
+  // もふもふ (黒羊は白い模様なし)
+  if (a.type !== 'black_sheep') {
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    for (let i = 0; i < 5; i++) {
+      const pa = (i/5)*Math.PI*2 + totalT*0.5 + a.phase;
+      ctx.beginPath();
+      ctx.arc(Math.cos(pa)*(r-2*sc)*0.52, Math.sin(pa)*(r-2*sc)*0.52, r*0.26, 0, Math.PI*2);
+      ctx.fill();
+    }
   }
   // 顔
   const fX = Math.cos(ang)*r*0.6, fY = Math.sin(ang)*r*0.6;
   ctx.fillStyle = st.face;
   ctx.beginPath(); ctx.ellipse(fX, fY, r*0.46, r*0.4, ang, 0, Math.PI*2); ctx.fill();
-  // 目
   const perp = ang + Math.PI/2;
+  // 耳 (細長い楕円、顔の横から突き出す) - 回転はperpで固定
+  [-1, 1].forEach(side => {
+    const ex = fX + Math.cos(perp)*side*r*0.52;
+    const ey = fY + Math.sin(perp)*side*r*0.52;
+    ctx.fillStyle = st.face;
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, r*0.22, r*0.09, perp, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = st.faceBlack ? '#3a2010' : '#e8b090';
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, r*0.13, r*0.05, perp, 0, Math.PI*2);
+    ctx.fill();
+  });
+  // 目
   [-1, 1].forEach(side => {
     const ex = fX + Math.cos(ang)*r*0.1 + Math.cos(perp)*side*r*0.22;
     const ey = fY + Math.sin(ang)*r*0.1 + Math.sin(perp)*side*r*0.22;
     ctx.fillStyle = st.faceBlack ? '#f0d0a0' : '#1a0a06';
     ctx.beginPath(); ctx.arc(ex, ey, r*0.12, 0, Math.PI*2); ctx.fill();
   });
-  // 耳
-  [-1, 1].forEach(side => {
-    const ex = fX + Math.cos(perp)*side*r*0.38;
-    const ey = fY + Math.sin(perp)*side*r*0.38;
-    ctx.fillStyle = st.face;
-    ctx.beginPath();
-    ctx.ellipse(ex, ey, r*0.14, r*0.08, perp*side, 0, Math.PI*2);
-    ctx.fill();
-  });
+  // 頭黒羊: 角 (curl horn)
+  if (a.type === 'bh_sheep') {
+    ctx.strokeStyle = '#c8a840'; ctx.lineWidth = r*0.1; ctx.lineCap = 'round';
+    [-1, 1].forEach(side => {
+      const hbx = fX + Math.cos(perp)*side*r*0.3 - Math.cos(ang)*r*0.1;
+      const hby = fY + Math.sin(perp)*side*r*0.3 - Math.sin(ang)*r*0.1;
+      ctx.beginPath();
+      ctx.arc(hbx, hby, r*0.22, ang - side*Math.PI*0.2, ang - side*Math.PI*1.1, side < 0);
+      ctx.stroke();
+    });
+  }
 }
 
 function drawGooseShape(a, r, sc, ang) {
@@ -2240,14 +2320,21 @@ function drawCowShape(a, r, sc, ang) {
   // 体
   ctx.fillStyle = st.body;
   ctx.beginPath(); ctx.ellipse(0, 0, r*1.05, r*0.78, ang, 0, Math.PI*2); ctx.fill();
-  // 黒ぶち (4箇所、変数で出し分け)
+  // ホルスタイン黒ぶち (個体差あり、6-7パターン)
   ctx.fillStyle = st.patch;
-  const patches = [[0.3,0.25,0.32],[-0.28,-0.25,0.28],[-0.35,0.3,0.22],[0.25,-0.3,0.25]];
-  patches.forEach((p, i) => {
-    if ((i + a.variant) % 2 === 0) return;
+  // ぶち: 体楕円(r*1.05 × r*0.78)内に散らす。中心から離して個体差
+  const allPatches = [
+    [ 0.55, 0.40, 0.24, 0.72], [-0.52,-0.38, 0.22, 0.75],
+    [-0.60, 0.28, 0.20, 0.80], [ 0.45,-0.42, 0.22, 0.78],
+    [-0.10, 0.58, 0.18, 0.70], [ 0.20,-0.58, 0.20, 0.72],
+    [ 0.65,-0.10, 0.17, 0.75], [-0.65, 0.05, 0.17, 0.75],
+  ];
+  allPatches.forEach((p, i) => {
+    const seed = ((a.variant * 31 + Math.floor(a.phase * 100) * 17 + i * 13) % 10);
+    if (seed < 3) return;  // 30%除外 (7-8枚中5-6枚)
     const px = Math.cos(ang)*p[0]*r - Math.sin(ang)*p[1]*r;
     const py = Math.sin(ang)*p[0]*r + Math.cos(ang)*p[1]*r;
-    ctx.beginPath(); ctx.ellipse(px, py, r*p[2], r*p[2]*0.8, ang, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(px, py, r*p[2], r*p[2]*p[3], ang, 0, Math.PI*2); ctx.fill();
   });
   // 頭
   const hx = Math.cos(ang)*r*0.92, hy = Math.sin(ang)*r*0.92;
@@ -2365,17 +2452,19 @@ function drawWolfShape(w, r, sc, ang) {
   const hx = Math.cos(ang)*r*0.92, hy = Math.sin(ang)*r*0.92;
   ctx.fillStyle = st.head;
   ctx.beginPath(); ctx.arc(hx, hy, r*0.6, 0, Math.PI*2); ctx.fill();
-  // 耳 (三角、ピクッ)
-  const earWig = Math.sin(totalT*6 + w.phase) * 0.08;
+  // 耳 (大きな立ち耳・犬スタイル、後ろに傾く)
   const perp = ang + Math.PI/2;
   [-1, 1].forEach(side => {
-    const ex = hx + Math.cos(perp)*side*r*0.45, ey = hy + Math.sin(perp)*side*r*0.45;
+    // 先端: 外側かつ後ろ方向
+    const tipX = hx + Math.cos(perp)*side*r*0.68 - Math.cos(ang)*r*0.50;
+    const tipY = hy + Math.sin(perp)*side*r*0.68 - Math.sin(ang)*r*0.50;
+    const p1X  = hx + Math.cos(perp)*side*r*0.36 - Math.cos(ang)*r*0.08;
+    const p1Y  = hy + Math.sin(perp)*side*r*0.36 - Math.sin(ang)*r*0.08;
+    const p2X  = hx + Math.cos(perp)*side*r*0.60 + Math.cos(ang)*r*0.10;
+    const p2Y  = hy + Math.sin(perp)*side*r*0.60 + Math.sin(ang)*r*0.10;
     ctx.fillStyle = st.dark;
     ctx.beginPath();
-    ctx.moveTo(ex, ey);
-    ctx.lineTo(ex + Math.cos(ang + earWig*side)*r*0.4 + Math.cos(perp)*side*r*0.15,
-               ey + Math.sin(ang + earWig*side)*r*0.4 + Math.sin(perp)*side*r*0.15);
-    ctx.lineTo(ex + Math.cos(perp)*side*r*0.1, ey + Math.sin(perp)*side*r*0.1);
+    ctx.moveTo(tipX, tipY); ctx.lineTo(p1X, p1Y); ctx.lineTo(p2X, p2Y);
     ctx.closePath(); ctx.fill();
   });
   // 鼻
@@ -2504,29 +2593,22 @@ function drawDog(e, custom) {
   ctx.fillStyle = body;
   ctx.beginPath(); ctx.ellipse(0, 0, r*0.82, r*0.62, fa, 0, Math.PI*2); ctx.fill();
 
-  // 模様 (サブカラー・体内に収まる寸法)
+  // 模様 (サブカラー・stripe廃止)
   if (custom.pattern !== 'solid') {
     ctx.fillStyle = sub;
     if (custom.pattern === 'spot') {
-      // ぶち: 体内に収まる位置の楕円
       [[0.15, 0.08, 0.18], [-0.15, -0.15, 0.15], [-0.08, 0.22, 0.13]].forEach(p => {
         const px = Math.cos(fa)*p[0]*r - Math.sin(fa)*p[1]*r;
         const py = Math.sin(fa)*p[0]*r + Math.cos(fa)*p[1]*r;
         ctx.beginPath(); ctx.ellipse(px, py, r*p[2], r*p[2]*0.8, fa, 0, Math.PI*2); ctx.fill();
       });
     } else if (custom.pattern === 'belt') {
-      // ボーダーコリー風: 体ローカル座標で rotate して描画
-      ctx.save(); ctx.rotate(fa);
-      // 体楕円は長軸r*0.82(X), 短軸r*0.62(Y)。帯はX中央付近を太く
-      ctx.fillRect(-r*0.38, -r*0.6, r*0.5, r*1.2);
-      ctx.restore();
-    } else if (custom.pattern === 'stripe') {
-      ctx.save(); ctx.rotate(fa);
-      // 3本縞、体内に収まるX範囲 ±0.75 以内
-      [-r*0.45, -r*0.05, r*0.28].forEach(x => {
-        ctx.fillRect(x, -r*0.6, r*0.16, r*1.2);
-      });
-      ctx.restore();
+      // ボーダーコリー風の帯: 体に内接する楕円でサブカラーを塗る
+      // 体楕円 ellipse(0,0,r*0.82,r*0.62,fa) の内側に収まる
+      const bx = Math.cos(fa)*r*-0.06, by = Math.sin(fa)*r*-0.06;
+      ctx.beginPath();
+      ctx.ellipse(bx, by, r*0.52, r*0.60, fa, 0, Math.PI*2);
+      ctx.fill();
     }
   }
 
@@ -2535,33 +2617,30 @@ function drawDog(e, custom) {
   ctx.fillStyle = body;
   ctx.beginPath(); ctx.arc(hx, hy, r*0.56, 0, Math.PI*2); ctx.fill();
 
-  // 耳 (サブカラー)
+  // 耳 (目 perp*0.27 より外、perp*0.60 以上に配置)
   const perp = fa + Math.PI/2;
   [-1, 1].forEach(side => {
     ctx.fillStyle = sub;
     if (custom.ear === 'floppy') {
-      const ex = hx + Math.cos(perp)*side*r*0.42, ey = hy + Math.sin(perp)*side*r*0.42;
+      const ex = hx + Math.cos(perp)*side*r*0.58, ey = hy + Math.sin(perp)*side*r*0.58;
       ctx.beginPath();
-      ctx.ellipse(ex + Math.cos(fa)*r*-0.04, ey + Math.sin(fa)*r*-0.04, r*0.2, r*0.3, fa, 0, Math.PI*2);
+      ctx.ellipse(ex - Math.cos(fa)*r*0.06, ey - Math.sin(fa)*r*0.06, r*0.2, r*0.3, fa, 0, Math.PI*2);
       ctx.fill();
     } else if (custom.ear === 'pointy') {
-      // 立ち耳: 後ろ (反fa方向) に向かう三角
-      const baseX = hx + Math.cos(perp)*side*r*0.38;
-      const baseY = hy + Math.sin(perp)*side*r*0.38;
-      // 先端は後ろ斜め上に
-      const tipX = baseX + Math.cos(perp)*side*r*0.22 - Math.cos(fa)*r*0.38;
-      const tipY = baseY + Math.sin(perp)*side*r*0.22 - Math.sin(fa)*r*0.38;
-      const p1X = hx + Math.cos(perp)*side*r*0.25 - Math.cos(fa)*r*0.1;
-      const p1Y = hy + Math.sin(perp)*side*r*0.25 - Math.sin(fa)*r*0.1;
-      const p2X = hx + Math.cos(perp)*side*r*0.48 - Math.cos(fa)*r*0.05;
-      const p2Y = hy + Math.sin(perp)*side*r*0.48 - Math.sin(fa)*r*0.05;
+      // 立ち耳: 後ろ方向の三角、付け根は頭内に収まる (head r*0.56)
+      const tipX = hx + Math.cos(perp)*side*r*0.70 - Math.cos(fa)*r*0.52;
+      const tipY = hy + Math.sin(perp)*side*r*0.70 - Math.sin(fa)*r*0.52;
+      const p1X  = hx + Math.cos(perp)*side*r*0.36 - Math.cos(fa)*r*0.10;
+      const p1Y  = hy + Math.sin(perp)*side*r*0.36 - Math.sin(fa)*r*0.10;
+      const p2X  = hx + Math.cos(perp)*side*r*0.56 + Math.cos(fa)*r*0.08;
+      const p2Y  = hy + Math.sin(perp)*side*r*0.56 + Math.sin(fa)*r*0.08;
       ctx.beginPath();
       ctx.moveTo(tipX, tipY);
       ctx.lineTo(p1X, p1Y);
       ctx.lineTo(p2X, p2Y);
       ctx.closePath(); ctx.fill();
-    } else {
-      const ex = hx + Math.cos(perp)*side*r*0.46, ey = hy + Math.sin(perp)*side*r*0.46;
+    } else {  // round
+      const ex = hx + Math.cos(perp)*side*r*0.60, ey = hy + Math.sin(perp)*side*r*0.60;
       ctx.beginPath(); ctx.arc(ex, ey, r*0.2, 0, Math.PI*2); ctx.fill();
     }
   });
@@ -2570,7 +2649,7 @@ function drawDog(e, custom) {
   ctx.fillStyle = '#1a0808';
   ctx.beginPath(); ctx.arc(hx + Math.cos(fa)*r*0.43, hy + Math.sin(fa)*r*0.43, r*0.15, 0, Math.PI*2); ctx.fill();
 
-  // 目 (ハイライト付き)
+  // 目
   [-1, 1].forEach(side => {
     const ex = hx + Math.cos(perp)*side*r*0.27 + Math.cos(fa)*r*0.16;
     const ey = hy + Math.sin(perp)*side*r*0.27 + Math.sin(fa)*r*0.16;
@@ -2580,9 +2659,9 @@ function drawDog(e, custom) {
     ctx.beginPath(); ctx.arc(ex + r*0.04, ey - r*0.04, r*0.05, 0, Math.PI*2); ctx.fill();
   });
 
-  // しっぽ (速度で振り速度増加)
-  const wagSpd = 6 + Math.min(10, spd * 0.04);
-  const ta = fa + Math.PI + Math.sin(totalT * wagSpd) * 0.7;
+  // しっぽ (速度による加速を抑える、最大2.5 rad/s)
+  const wagSpd = 2.0 + Math.min(2.5, spd * 0.018);
+  const ta = fa + Math.PI + Math.sin(totalT * wagSpd) * 0.65;
   ctx.strokeStyle = body; ctx.lineWidth = 2.8*sc; ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(-Math.cos(fa)*r*0.65, -Math.sin(fa)*r*0.65);
@@ -2619,27 +2698,9 @@ function hashCoord(x, y) {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
 }
 
-function drawForest() {
+// 草地テクスチャのみ (動物より下のレイヤー)
+function drawGrassTexture() {
   const sc = wScale();
-  // 1. 画面全体を暗い森の地面で塗る
-  ctx.fillStyle = '#2a4a1a';
-  ctx.fillRect(0, 0, CW, CH);
-
-  // 2. 牧草地ポリゴン (明るい緑)
-  ctx.fillStyle = '#4a8c38';
-  ctx.beginPath();
-  for (let i = 0; i <= FOREST_POINTS; i++) {
-    const idx = i % FOREST_POINTS;
-    const a = idx / FOREST_POINTS * Math.PI * 2;
-    const r = FOREST_R[idx];
-    const [sx, sy] = w2s(Math.cos(a)*r, Math.sin(a)*r);
-    if (i === 0) ctx.moveTo(sx, sy);
-    else ctx.lineTo(sx, sy);
-  }
-  ctx.closePath();
-  ctx.fill();
-
-  // 3. 地面テクスチャ (ワールド座標に固定、各セルの位置で森/牧草を判定)
   const halfVw = VIEW_W / 2;
   const halfVh = (CH / sc) / 2;
   const grid = 32;
@@ -2651,77 +2712,71 @@ function drawForest() {
     for (let wx = startX; wx <= endX; wx += grid) {
       const h = hashCoord(wx, wy);
       const h2 = hashCoord(wx + 3, wy + 7);
-      // 各セル中心位置で森判定
-      const isForest = inForest(wx, wy);
-      if (isForest) {
-        // 森の中: 暗い木の影+下草
-        if (h < 0.4) {
-          const [sx, sy] = w2s(wx + (h-0.5)*grid*0.7, wy + (h2-0.5)*grid*0.7);
-          ctx.fillStyle = '#1a3008';
-          const rr = (9 + h*9) * sc;
-          ctx.beginPath(); ctx.arc(sx, sy, rr, 0, Math.PI*2); ctx.fill();
-          ctx.fillStyle = '#2a5018';
-          ctx.beginPath(); ctx.arc(sx-2*sc, sy-2*sc, rr*0.55, 0, Math.PI*2); ctx.fill();
-        } else if (h < 0.7) {
-          const [sx, sy] = w2s(wx + (h-0.5)*grid*0.5, wy + (h2-0.5)*grid*0.5);
-          ctx.fillStyle = '#244018';
-          const sz = (4 + h2*3) * sc;
-          ctx.fillRect(sx, sy, sz, sz);
-        }
-      } else {
-        // 牧草地: 草の群+花
+      if (!inForest(wx, wy)) {
         if (h < 0.45) {
-          const [sx, sy] = w2s(wx + (h-0.5)*grid*0.6, wy + (h2-0.5)*grid*0.6);
+          const [sx2, sy2] = w2s(wx + (h-0.5)*grid*0.6, wy + (h2-0.5)*grid*0.6);
           ctx.fillStyle = h < 0.2 ? '#3a7028' : '#558a3c';
-          const sz = (3 + hashCoord(wx+11, wy+13)*3) * sc;
-          ctx.fillRect(sx, sy, sz, sz);
+          const sz = (3 + hashCoord(wx+11,wy+13)*3)*sc;
+          ctx.fillRect(sx2, sy2, sz, sz);
         } else if (h < 0.53) {
-          // 小さな花
-          const [sx, sy] = w2s(wx + (h-0.5)*grid*0.6, wy + (h2-0.5)*grid*0.6);
-          const flowerColors = ['#f0e058', '#f0a8c0', '#f0f0f0', '#d8b0f0'];
-          ctx.fillStyle = flowerColors[Math.floor(hashCoord(wx+17, wy+19) * 4)];
-          const sz = 2.5 * sc;
-          ctx.fillRect(sx, sy, sz, sz);
+          const [sx2, sy2] = w2s(wx + (h-0.5)*grid*0.6, wy + (h2-0.5)*grid*0.6);
+          ctx.fillStyle = ['#f0e058','#f0a8c0','#f0f0f0','#d8b0f0'][Math.floor(hashCoord(wx+17,wy+19)*4)];
+          ctx.fillRect(sx2, sy2, 2.5*sc, 2.5*sc);
         }
       }
     }
   }
+}
 
-  // 4. 森の内側の輪郭 (境界強調)
+// 森オーバーレイのみ (動物より上のレイヤー)
+function drawForest() {
+  const sc = wScale();
+  ctx.save();
+  ctx.fillStyle = '#2a4a1a';
+  ctx.beginPath();
+  ctx.rect(0, 0, CW, CH);
+  for (let i = FOREST_POINTS; i >= 0; i--) {
+    const idx = i % FOREST_POINTS;
+    const a = idx / FOREST_POINTS * Math.PI * 2;
+    const r = FOREST_R[idx];
+    const [sx, sy] = w2s(Math.cos(a)*r, Math.sin(a)*r);
+    if (i === FOREST_POINTS) ctx.moveTo(sx, sy);
+    else ctx.lineTo(sx, sy);
+  }
+  ctx.closePath();
+  ctx.fill('evenodd');
+  ctx.restore();
   ctx.fillStyle = 'rgba(20, 50, 10, 0.6)';
   for (let i = 0; i < FOREST_POINTS; i += 2) {
     const a = i / FOREST_POINTS * Math.PI * 2;
     const r = FOREST_R[i];
-    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    const x = Math.cos(a)*r, y = Math.sin(a)*r;
     if (!isVisible(x, y, 80)) continue;
-    const [sx, sy] = w2s(x, y);
-    const tr = (9 + Math.sin(i * 7.3) * 3) * sc;
-    const x2 = Math.cos(a) * (r + 30), y2 = Math.sin(a) * (r + 30);
-    const [s2x, s2y] = w2s(x2, y2);
+    const tr = (9 + Math.sin(i*7.3)*3) * sc;
+    const [s2x,s2y] = w2s(Math.cos(a)*(r+30), Math.sin(a)*(r+30));
     ctx.beginPath(); ctx.arc(s2x, s2y, tr, 0, Math.PI*2); ctx.fill();
-    const x3 = Math.cos(a) * (r + 70), y3 = Math.sin(a) * (r + 70);
-    const [s3x, s3y] = w2s(x3, y3);
-    ctx.beginPath(); ctx.arc(s3x, s3y, tr * 1.1, 0, Math.PI*2); ctx.fill();
+    const [s3x,s3y] = w2s(Math.cos(a)*(r+70), Math.sin(a)*(r+70));
+    ctx.beginPath(); ctx.arc(s3x, s3y, tr*1.1, 0, Math.PI*2); ctx.fill();
   }
 }
 
 function drawPonds() {
   const sc = wScale();
   PONDS.forEach(p => {
+    const rx = p.r * sc;
+    const ry = (p.ry || p.r * 0.7) * sc;
     if (!isVisible(p.x, p.y, p.r + 20)) return;
     const [sx, sy] = w2s(p.x, p.y);
-    const r = p.r * sc;
-    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rx);
     g.addColorStop(0, '#62b2da'); g.addColorStop(1, '#2e70a8');
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.ellipse(sx, sy, r, r*0.7, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(sx, sy, rx, ry, 0, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1.5;
     ctx.stroke();
-    // 波紋
     ctx.strokeStyle = 'rgba(200,230,250,0.25)'; ctx.lineWidth = 1;
     const wave = (Math.sin(totalT*1.5) + 1) * 0.1 + 0.4;
     ctx.beginPath();
-    ctx.ellipse(sx, sy, r*wave, r*0.7*wave, 0, 0, Math.PI*2);
+    ctx.ellipse(sx, sy, rx*wave, ry*wave, 0, 0, Math.PI*2);
     ctx.stroke();
   });
 }
@@ -2845,15 +2900,15 @@ function drawPens() {
 function drawPenSign(pen) {
   const [cx, cy] = w2s(pen.cx, pen.cy);
   const ws = wScale();
-  const signW = 56 * ws, signH = 44 * ws;
+  const signW = 64 * ws, signH = 56 * ws;
   const poleW = 4 * ws, poleH = 22 * ws;
   // ポール
   ctx.fillStyle = PALETTE.penPost;
   ctx.fillRect(cx - poleW/2, cy, poleW, poleH);
   // 看板本体
   const boardC = {
-    sheep:'#d8b060', goose:'#60a0c8',
-    chicken:'#e0a840', cow:'#a89080', pig:'#d898a0',
+    sheep:'#d8b060', black_sheep:'#4a4038', bh_sheep:'#3a3028',
+    goose:'#60a0c8', chicken:'#e0a840', cow:'#a89080', pig:'#d898a0',
   }[pen.penType] || '#d0c060';
   ctx.fillStyle = boardC;
   roundRect(ctx, cx - signW/2, cy - signH - 4*ws, signW, signH, 6*ws);
@@ -2862,7 +2917,7 @@ function drawPenSign(pen) {
   ctx.stroke();
   // ミニ動物 (図形で簡易に描画)
   const mx = cx, my = cy - signH/2 - 4*ws;
-  const mr = 14 * ws;
+  const mr = 18 * ws;
   ctx.save();
   ctx.translate(mx, my);
   drawPenSignAnimal(pen.penType, mr, ws);
@@ -2870,95 +2925,27 @@ function drawPenSign(pen) {
 }
 
 function drawPenSignAnimal(penType, r, sc) {
-  const ang = -Math.PI/2;  // 上向き
-  if (penType === 'sheep') {
-    const st = ANIMAL_STYLE.white_sheep;
-    ctx.fillStyle = st.wool;
-    ctx.beginPath(); ctx.ellipse(0, 0, r, r*0.8, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    for (let i = 0; i < 4; i++) {
-      const pa = (i/4)*Math.PI*2;
-      ctx.beginPath();
-      ctx.arc(Math.cos(pa)*r*0.45, Math.sin(pa)*r*0.45, r*0.26, 0, Math.PI*2);
-      ctx.fill();
-    }
-    ctx.fillStyle = st.face;
-    ctx.beginPath();
-    ctx.ellipse(0, -r*0.6, r*0.42, r*0.38, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#1a0a06';
-    ctx.beginPath(); ctx.arc(-r*0.15, -r*0.65, r*0.08, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(r*0.15, -r*0.65, r*0.08, 0, Math.PI*2); ctx.fill();
-  } else if (penType === 'goose') {
-    const st = ANIMAL_STYLE.goose;
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.ellipse(0, r*0.2, r*0.9, r*0.62, 0, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = st.body; ctx.lineWidth = r*0.4; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -r*0.8); ctx.stroke();
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.arc(0, -r*0.8, r*0.32, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#e0a020';
-    ctx.beginPath();
-    ctx.moveTo(0, -r*1.1); ctx.lineTo(r*0.2, -r*0.75); ctx.lineTo(-r*0.2, -r*0.75);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#1a0a06';
-    ctx.beginPath(); ctx.arc(0, -r*0.82, r*0.06, 0, Math.PI*2); ctx.fill();
-  } else if (penType === 'chicken') {
-    const st = ANIMAL_STYLE.chicken;
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.ellipse(0, r*0.15, r*0.85, r*0.65, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.arc(0, -r*0.5, r*0.42, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.comb;
-    ctx.beginPath(); ctx.arc(0, -r*0.8, r*0.2, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.beak;
-    ctx.beginPath();
-    ctx.moveTo(0, -r*0.3); ctx.lineTo(r*0.2, -r*0.1); ctx.lineTo(-r*0.2, -r*0.1);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#1a0808';
-    ctx.beginPath(); ctx.arc(-r*0.12, -r*0.55, r*0.06, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(r*0.12, -r*0.55, r*0.06, 0, Math.PI*2); ctx.fill();
-  } else if (penType === 'cow') {
-    const st = ANIMAL_STYLE.cow;
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.ellipse(0, r*0.2, r, r*0.7, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.patch;
-    ctx.beginPath(); ctx.ellipse(-r*0.3, r*0.1, r*0.28, r*0.22, 0, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(r*0.35, r*0.35, r*0.22, r*0.2, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.arc(0, -r*0.5, r*0.45, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.nose;
-    ctx.beginPath(); ctx.ellipse(0, -r*0.3, r*0.26, r*0.2, 0, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = st.horn; ctx.lineWidth = r*0.08; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(-r*0.3, -r*0.75); ctx.lineTo(-r*0.45, -r*0.9); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(r*0.3, -r*0.75); ctx.lineTo(r*0.45, -r*0.9); ctx.stroke();
-    ctx.fillStyle = '#1a0a06';
-    ctx.beginPath(); ctx.arc(-r*0.15, -r*0.5, r*0.06, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(r*0.15, -r*0.5, r*0.06, 0, Math.PI*2); ctx.fill();
-  } else if (penType === 'pig') {
-    const st = ANIMAL_STYLE.pig;
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.ellipse(0, r*0.2, r*0.9, r*0.72, 0, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.body;
-    ctx.beginPath(); ctx.arc(0, -r*0.5, r*0.45, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.nose;
-    ctx.beginPath();
-    ctx.ellipse(0, -r*0.3, r*0.26, r*0.22, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillStyle = '#3a1818';
-    ctx.beginPath(); ctx.arc(-r*0.08, -r*0.28, r*0.04, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(r*0.08, -r*0.28, r*0.04, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = st.dark;
-    ctx.beginPath();
-    ctx.moveTo(-r*0.35, -r*0.7); ctx.lineTo(-r*0.55, -r*0.55); ctx.lineTo(-r*0.25, -r*0.5);
-    ctx.closePath(); ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(r*0.35, -r*0.7); ctx.lineTo(r*0.55, -r*0.55); ctx.lineTo(r*0.25, -r*0.5);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#1a0a06';
-    ctx.beginPath(); ctx.arc(-r*0.15, -r*0.55, r*0.06, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(r*0.15, -r*0.55, r*0.06, 0, Math.PI*2); ctx.fill();
-  }
+  // ペンタイプ→動物タイプのマッピング
+  const typeMap = {
+    sheep: 'white_sheep', black_sheep: 'black_sheep', bh_sheep: 'bh_sheep',
+    goose: 'goose', chicken: 'chicken', cow: 'cow', pig: 'pig',
+  };
+  const animalType = typeMap[penType] || 'white_sheep';
+  // 実際の shape 関数に渡すための疑似 entity
+  const fakeA = {
+    type: animalType,
+    vx: 0, vy: 0,
+    phase: 0,
+    variant: 2,  // 固定のぶち位置
+    heading: -Math.PI/2,
+  };
+  const ang = -Math.PI/2;  // 上向き固定
+  const g = PARAMS[animalType].group;
+  if (g === 'sheep') drawSheepShape(fakeA, r, sc, ang);
+  else if (g === 'goose') drawGooseShape(fakeA, r, sc, ang);
+  else if (g === 'chicken') drawChickenShape(fakeA, r, sc, ang);
+  else if (g === 'cow') drawCowShape(fakeA, r, sc, ang);
+  else if (g === 'pig') drawPigShape(fakeA, r, sc, ang);
 }
 
 function drawFenceSegment(x1, y1, x2, y2) {
@@ -2991,71 +2978,82 @@ function drawFenceSegment(x1, y1, x2, y2) {
 
 function drawFarmer() {
   if (!FARMER) return;
-  if (!isVisible(FARMER.x, FARMER.y, 40)) return;
+  if (!isVisible(FARMER.x, FARMER.y, 60)) return;
   const sc = wScale();
   const [sx, sy] = w2s(FARMER.x, FARMER.y);
-  const r = 16 * sc;
+  // 警告円: 常にFARMER_BARK_RANGE範囲を表示
+  {
+    const rRing = FARMER_BARK_RANGE * sc;
+    const alpha = 0.18 + Math.sin(totalT*4)*0.08;
+    ctx.fillStyle = `rgba(216, 96, 72, ${alpha})`;
+    ctx.beginPath(); ctx.arc(sx, sy, rRing, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = `rgba(216, 96, 72, ${0.5 + Math.sin(totalT*4)*0.2})`;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([12, 8]);
+    ctx.beginPath(); ctx.arc(sx, sy, rRing, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    // 残り回数を牧場主の上に小さく
+    const rem = 3 - farmerNearBarks;
+    ctx.fillStyle = 'rgba(216,72,50,0.92)';
+    ctx.font = `bold ${Math.round(13*sc)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`⚠ あと${rem}回`, sx, sy - 36*sc);
+  }
+  const r = 26 * sc;  // 牧場主は犬と同程度のサイズ
   ctx.save();
   ctx.translate(sx, sy);
   // 影
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.beginPath(); ctx.ellipse(3*sc, 5*sc, r*0.7, r*0.28, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(3*sc, 6*sc, r*0.7, r*0.25, 0, 0, Math.PI*2); ctx.fill();
   // 足
   ctx.fillStyle = '#4a3020';
-  ctx.fillRect(-r*0.35, r*0.3, r*0.3, r*0.55);
-  ctx.fillRect(r*0.05, r*0.3, r*0.3, r*0.55);
+  ctx.fillRect(-r*0.32, r*0.28, r*0.28, r*0.52);
+  ctx.fillRect(r*0.04, r*0.28, r*0.28, r*0.52);
   // 胴
   ctx.fillStyle = '#3060a0';
-  ctx.beginPath(); ctx.ellipse(0, r*0.1, r*0.45, r*0.55, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, r*0.08, r*0.42, r*0.52, 0, 0, Math.PI*2); ctx.fill();
   // 腕
-  ctx.strokeStyle = '#3060a0'; ctx.lineWidth = r*0.28; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-r*0.45, 0); ctx.lineTo(-r*0.7, r*0.4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(r*0.45, 0); ctx.lineTo(r*0.75, r*0.35); ctx.stroke();
-  // 首
+  ctx.strokeStyle = '#3060a0'; ctx.lineWidth = r*0.25; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(-r*0.42, 0); ctx.lineTo(-r*0.68, r*0.38); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(r*0.42, 0); ctx.lineTo(r*0.72, r*0.32); ctx.stroke();
+  // 首・頭
   ctx.fillStyle = '#d8a878';
-  ctx.beginPath(); ctx.ellipse(0, -r*0.45, r*0.18, r*0.22, 0, 0, Math.PI*2); ctx.fill();
-  // 頭
-  ctx.beginPath(); ctx.arc(0, -r*0.82, r*0.38, 0, Math.PI*2); ctx.fill();
-  // 帽子 (麦わら)
+  ctx.beginPath(); ctx.ellipse(0, -r*0.42, r*0.17, r*0.2, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -r*0.78, r*0.36, 0, Math.PI*2); ctx.fill();
+  // 帽子
   ctx.fillStyle = '#c89050';
-  ctx.beginPath(); ctx.ellipse(0, -r*1.08, r*0.55, r*0.14, 0, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, -r*1.02, r*0.52, r*0.13, 0, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#a87038';
-  ctx.fillRect(-r*0.28, -r*1.5, r*0.56, r*0.45);
+  ctx.fillRect(-r*0.26, -r*1.42, r*0.52, r*0.42);
   // 目
   ctx.fillStyle = '#1a1008';
-  ctx.beginPath(); ctx.arc(-r*0.12, -r*0.82, r*0.06, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(r*0.12, -r*0.82, r*0.06, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-r*0.11, -r*0.78, r*0.055, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.11, -r*0.78, r*0.055, 0, Math.PI*2); ctx.fill();
   ctx.restore();
-
-  // 警告リング
-  if (farmerNearBarks > 0 && farmerNearBarks < 3) {
-    const rRing = FARMER_BARK_RANGE * sc;
-    ctx.strokeStyle = `rgba(216, 96, 72, ${0.4 + Math.sin(totalT*3)*0.3})`;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([10, 8]);
-    ctx.beginPath(); ctx.arc(sx, sy, rRing, 0, Math.PI*2); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(216, 96, 72, 0.9)';
-    const msg = `あと ${3 - farmerNearBarks} 回`;
-    ctx.font = `bold ${Math.round(14*sc)}px sans-serif`;
-    ctx.textAlign = 'center';
-    const w = ctx.measureText(msg).width + 16;
-    ctx.fillRect(sx - w/2, sy - 58*sc, w, 20*sc);
-    ctx.fillStyle = 'white';
-    ctx.fillText(msg, sx, sy - 44*sc);
-  }
 }
 
 function drawBarks() {
+  const sc = wScale();
   barks.forEach(b => {
     const [sx, sy] = w2s(b.x, b.y);
-    const r = b.r * wScale();
-    ctx.strokeStyle = `rgba(255, 232, 128, ${b.life})`;
+    // 吠えを文字で表現 (ワンッ! / 拡大・フェードアウト)
+    const t = 1 - b.life;  // 0=始まり, 1=終わり
+    const fontSize = Math.round((28 + t * 22) * sc);
+    ctx.save();
+    ctx.globalAlpha = b.life;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffe060';
+    ctx.strokeStyle = 'rgba(80,40,0,0.7)';
     ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.stroke();
-    ctx.strokeStyle = `rgba(255, 232, 128, ${b.life*0.5})`;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(sx, sy, r*0.6, 0, Math.PI*2); ctx.stroke();
+    // 上にゆっくり浮かぶ
+    const floatY = sy - t * 30 * sc;
+    const barkWords = ['\\Bow!/', '\\Wow!/', '\\Woof!/', '\\Wof!/', 'Bark!', 'Arf!', '\\Woaf!/'];
+    const bword = barkWords[Math.floor(Math.abs(b.x*7+b.y*13)) % barkWords.length];
+    ctx.strokeText(bword, sx, floatY);
+    ctx.fillText(bword, sx, floatY);
+    ctx.restore();
   });
 }
 
@@ -3063,13 +3061,20 @@ function drawOffscreenMarkers() {
   if (!dog) return;
   const cx = CW/2, cy = CH/2;
   const margin = 44;
-  function marker(tx, ty, color, label, bgColor) {
+  // 種類別の色
+  const typeColors = {
+    white_sheep:'#f0ebdc', black_sheep:'#2a241c', bh_sheep:'#2a241c',
+    goose:'#e8e4d8', chicken:'#f0dc88', cow:'#f0ebdc', pig:'#f0b0b8',
+    wolf:'#6a6458', pen:'#ffe680', farmer:'#ffb088',
+  };
+  function marker(tx, ty, color, drawIcon) {
     const [sx, sy] = w2s(tx, ty);
     if (sx > margin && sx < CW-margin && sy > margin && sy < CH-margin) return;
     const dx = sx - cx, dy = sy - cy;
     const a = Math.atan2(dy, dx);
-    const mx = cx + Math.cos(a) * Math.min((CW/2-margin)/Math.abs(Math.cos(a)||0.001), (CH/2-margin)/Math.abs(Math.sin(a)||0.001));
-    const my = cy + Math.sin(a) * Math.min((CW/2-margin)/Math.abs(Math.cos(a)||0.001), (CH/2-margin)/Math.abs(Math.sin(a)||0.001));
+    const dist = Math.min((CW/2-margin)/Math.abs(Math.cos(a)||0.001), (CH/2-margin)/Math.abs(Math.sin(a)||0.001));
+    const mx = cx + Math.cos(a) * dist;
+    const my = cy + Math.sin(a) * dist;
     // 矢印
     ctx.save();
     ctx.translate(mx, my);
@@ -3081,27 +3086,70 @@ function drawOffscreenMarkers() {
     ctx.moveTo(14, 0); ctx.lineTo(-9, -9); ctx.lineTo(-5, 0); ctx.lineTo(-9, 9);
     ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.restore();
-    if (label) {
-      // 緑系の背景 (木の看板風)
-      const boxW = 28, boxH = 16;
-      ctx.fillStyle = bgColor || 'rgba(74, 128, 56, 0.92)';  // 草色
-      ctx.fillRect(mx-boxW/2, my+12, boxW, boxH);
-      ctx.strokeStyle = 'rgba(30,60,20,0.9)';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(mx-boxW/2, my+12, boxW, boxH);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, mx, my + 12 + boxH/2);
+    // 図形アイコン
+    if (drawIcon) {
+      ctx.save();
+      ctx.translate(mx, my - 18);
+      drawIcon(ctx);
+      ctx.restore();
     }
   }
+
+  // ペンのマーカー: ctx差し替えでshape関数を直接呼ぶ
   PENS.forEach(p => {
-    const emoji = p.penType==='sheep'?'🐑':p.penType==='goose'?'🪿':p.penType==='chicken'?'🐔':p.penType==='cow'?'🐄':p.penType==='pig'?'🐖':'?';
-    marker(p.cx, p.cy, '#ffe680', emoji, 'rgba(74, 128, 56, 0.92)');
+    marker(p.cx, p.cy, '#ffe680', (c) => {
+      // 看板背景
+      c.fillStyle = 'rgba(60,100,40,0.92)';
+      c.fillRect(-14, -12, 28, 24);
+      c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 1;
+      c.strokeRect(-14, -12, 28, 24);
+      // ctx差し替えでshape関数呼び出し
+      const savedCtx = ctx;
+      ctx = c;
+      const typeMap = {
+        sheep:'white_sheep', black_sheep:'black_sheep', bh_sheep:'bh_sheep',
+        goose:'goose', chicken:'chicken', cow:'cow', pig:'pig',
+      };
+      const animalType = typeMap[p.penType] || 'white_sheep';
+      const fakeA = { type: animalType, vx:0, vy:0, phase:0, variant:2, heading:-Math.PI/2 };
+      const r = 8;
+      try {
+        ctx.save(); ctx.translate(0, 1);
+        const g = PARAMS[animalType] ? PARAMS[animalType].group : 'sheep';
+        if (g==='sheep') drawSheepShape(fakeA, r, 1, -Math.PI/2);
+        else if (g==='goose') drawGooseShape(fakeA, r, 1, -Math.PI/2);
+        else if (g==='chicken') drawChickenShape(fakeA, r, 1, -Math.PI/2);
+        else if (g==='cow') drawCowShape(fakeA, r, 1, -Math.PI/2);
+        else if (g==='pig') drawPigShape(fakeA, r, 1, -Math.PI/2);
+        ctx.restore();
+      } catch(e) {}
+      ctx = savedCtx;
+    });
   });
-  if (FARMER) marker(FARMER.x, FARMER.y, '#ffb088', '👨‍🌾', 'rgba(120, 80, 48, 0.92)');
-  ENTITIES.forEach(e => { if (e.type === 'wolf') marker(e.x, e.y, '#ff8080', '🐺', 'rgba(120, 48, 48, 0.92)'); });
+
+  // 牧場主
+  if (FARMER) marker(FARMER.x, FARMER.y, '#ffb088', (c) => {
+    c.fillStyle = 'rgba(120,80,48,0.92)';
+    c.fillRect(-8, -8, 16, 16);
+    c.fillStyle = '#d8a878';
+    c.beginPath(); c.arc(0, -2, 5, 0, Math.PI*2); c.fill();
+    c.fillStyle = '#3060a0';
+    c.beginPath(); c.ellipse(0, 5, 4, 5, 0, 0, Math.PI*2); c.fill();
+  });
+
+  // 狼
+  ENTITIES.forEach(e => {
+    if (e.type === 'wolf') marker(e.x, e.y, '#ff8080', (c) => {
+      c.fillStyle = 'rgba(120,48,48,0.92)';
+      c.fillRect(-8,-8,16,16);
+      c.fillStyle = '#6a6458';
+      c.beginPath(); c.ellipse(0, 2, 7, 5, 0, 0, Math.PI*2); c.fill();
+      c.beginPath(); c.arc(0, -3, 5, 0, Math.PI*2); c.fill();
+      c.fillStyle = '#d0b000';
+      c.beginPath(); c.arc(-2, -3, 1.5, 0, Math.PI*2); c.fill();
+      c.beginPath(); c.arc(2, -3, 1.5, 0, Math.PI*2); c.fill();
+    });
+  });
 }
 
 function drawAll() {
@@ -3115,11 +3163,14 @@ function drawAll() {
     ctx.clearRect(0, 0, CW, CH);
 
     // === レイヤー順 (下→上) ===
-    // 1. 森+地面 (背景)
-    drawForest();
-    // 2. 池 (地面の次)
+    // 1. 地面 (草のベース色のみ)
+    ctx.fillStyle = '#4a8c38';
+    ctx.fillRect(0, 0, CW, CH);
+    // 2. 草地テクスチャ (動物より下)
+    drawGrassTexture();
+    // 3. 池
     drawPonds();
-    // 3. 柵 (動物の下)
+    // 4. 柵
     drawPens();
 
     // 4. 動物 (y順)
@@ -3160,10 +3211,13 @@ function drawAll() {
       } catch(err) { console.error('overhead err', item.kind, err); }
     });
 
-    // 7. 牧場主 (建物より上)
+    // 7. 牧場主
     drawFarmer();
 
-    // 8. 吠え+オーバーレイ
+    // 8. 森 (動物より上: 動物が森に入ると見えなくなる)
+    drawForest();
+
+    // 9. 吠え+オーバーレイ
     drawBarks();
     drawOffscreenMarkers();
   } catch(err) {
@@ -3361,7 +3415,7 @@ function loop(ts) {
   // 吠え関係の更新
   if (barkCooldown > 0) barkCooldown = Math.max(0, barkCooldown - dt);
   barkEffect = Math.min(1.0, barkEffect + dt * 0.2);
-  barks.forEach(b => { b.life -= dt * 1.6; b.r += dt * 380; });
+  barks.forEach(b => { b.life -= dt * 1.0; b.r += dt * 280; });
   barks = barks.filter(b => b.life > 0);
 
   if (currentScene === 'game' && dog) {
@@ -3489,12 +3543,9 @@ function drawDogPreview() {
   const cvs = document.getElementById('dog-preview-canvas');
   if (!cvs) return;
   const pctx = cvs.getContext('2d');
-  // 背景
   pctx.fillStyle = '#4a8c38';
   pctx.fillRect(0, 0, cvs.width, cvs.height);
-  // 芝テクスチャ
-  pctx.save();
-  pctx.globalAlpha = 0.15;
+  pctx.save(); pctx.globalAlpha = 0.15;
   for (let y = 0; y < cvs.height; y += 14) {
     for (let x = 0; x < cvs.width; x += 14) {
       pctx.fillStyle = ((x/14 + y/14) & 1) === 0 ? '#3a7030' : '#528c3e';
@@ -3503,106 +3554,88 @@ function drawDogPreview() {
   }
   pctx.restore();
 
-  // 犬を中央に描画 (下向き=正面)
+  // ctx を pctx に差し替えて drawDog と同一ロジックで描画
+  const savedCtx = ctx;
+  ctx = pctx;
   const custom = DOG_CUSTOM;
-  const sc = custom.size === 's' ? 0.82 : (custom.size === 'l' ? 1.18 : 1.0);
-  const r = 34 * sc;
-  const cx = cvs.width / 2, cy = cvs.height / 2;
+  const szMul = custom.size === 's' ? 0.82 : (custom.size === 'l' ? 1.18 : 1.0);
+  const r = 22 * szMul;
   const fa = Math.PI / 2;
   const body = custom.color;
   const sub = custom.subColor || shadeColor(body, 0.65);
 
-  pctx.save();
-  pctx.translate(cx, cy);
+  ctx.save();
+  ctx.translate(cvs.width/2, cvs.height/2);
 
-  // 影
-  pctx.fillStyle = 'rgba(0,0,0,0.18)';
-  pctx.beginPath(); pctx.ellipse(2, 5, r*0.82, r*0.33, 0, 0, Math.PI*2); pctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(2, 5, r*0.82, r*0.33, 0, 0, Math.PI*2); ctx.fill();
 
-  // 体
-  pctx.fillStyle = body;
-  pctx.beginPath(); pctx.ellipse(0, 0, r*0.82, r*0.62, fa, 0, Math.PI*2); pctx.fill();
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.ellipse(0, 0, r*0.82, r*0.62, fa, 0, Math.PI*2); ctx.fill();
 
-  // 模様 (サブカラー)
   if (custom.pattern !== 'solid') {
-    pctx.fillStyle = sub;
+    ctx.fillStyle = sub;
     if (custom.pattern === 'spot') {
-      [[0.15, 0.08, 0.18], [-0.15, -0.15, 0.15], [-0.08, 0.22, 0.13]].forEach(p => {
+      [[0.15,0.08,0.18],[-0.15,-0.15,0.15],[-0.08,0.22,0.13]].forEach(p => {
         const px = Math.cos(fa)*p[0]*r - Math.sin(fa)*p[1]*r;
         const py = Math.sin(fa)*p[0]*r + Math.cos(fa)*p[1]*r;
-        pctx.beginPath(); pctx.ellipse(px, py, r*p[2], r*p[2]*0.8, fa, 0, Math.PI*2); pctx.fill();
+        ctx.beginPath(); ctx.ellipse(px, py, r*p[2], r*p[2]*0.8, fa, 0, Math.PI*2); ctx.fill();
       });
     } else if (custom.pattern === 'belt') {
-      pctx.save(); pctx.rotate(fa);
-      pctx.fillRect(-r*0.38, -r*0.6, r*0.5, r*1.2);
-      pctx.restore();
-    } else if (custom.pattern === 'stripe') {
-      pctx.save(); pctx.rotate(fa);
-      [-r*0.45, -r*0.05, r*0.28].forEach(x => {
-        pctx.fillRect(x, -r*0.6, r*0.16, r*1.2);
-      });
-      pctx.restore();
+      const bx = Math.cos(fa)*r*-0.06, by = Math.sin(fa)*r*-0.06;
+      ctx.beginPath(); ctx.ellipse(bx, by, r*0.52, r*0.60, fa, 0, Math.PI*2); ctx.fill();
     }
   }
 
-  // 頭
   const hx = Math.cos(fa)*r*0.88, hy = Math.sin(fa)*r*0.88;
-  pctx.fillStyle = body;
-  pctx.beginPath(); pctx.arc(hx, hy, r*0.56, 0, Math.PI*2); pctx.fill();
+  ctx.fillStyle = body;
+  ctx.beginPath(); ctx.arc(hx, hy, r*0.56, 0, Math.PI*2); ctx.fill();
 
-  // 耳 (サブカラー)
   const perp = fa + Math.PI/2;
-  [-1, 1].forEach(side => {
-    pctx.fillStyle = sub;
+  [-1,1].forEach(side => {
+    ctx.fillStyle = sub;
     if (custom.ear === 'floppy') {
-      const ex = hx + Math.cos(perp)*side*r*0.42, ey = hy + Math.sin(perp)*side*r*0.42;
-      pctx.beginPath();
-      pctx.ellipse(ex + Math.cos(fa)*r*-0.04, ey + Math.sin(fa)*r*-0.04, r*0.2, r*0.3, fa, 0, Math.PI*2);
-      pctx.fill();
+      const ex = hx + Math.cos(perp)*side*r*0.52, ey = hy + Math.sin(perp)*side*r*0.52;
+      ctx.beginPath();
+      ctx.ellipse(ex - Math.cos(fa)*r*0.06, ey - Math.sin(fa)*r*0.06, r*0.2, r*0.3, fa, 0, Math.PI*2);
+      ctx.fill();
     } else if (custom.ear === 'pointy') {
-      // 立ち耳: 後ろ方向
-      const baseX = hx + Math.cos(perp)*side*r*0.38;
-      const baseY = hy + Math.sin(perp)*side*r*0.38;
-      const tipX = baseX + Math.cos(perp)*side*r*0.22 - Math.cos(fa)*r*0.38;
-      const tipY = baseY + Math.sin(perp)*side*r*0.22 - Math.sin(fa)*r*0.38;
-      const p1X = hx + Math.cos(perp)*side*r*0.25 - Math.cos(fa)*r*0.1;
-      const p1Y = hy + Math.sin(perp)*side*r*0.25 - Math.sin(fa)*r*0.1;
-      const p2X = hx + Math.cos(perp)*side*r*0.48 - Math.cos(fa)*r*0.05;
-      const p2Y = hy + Math.sin(perp)*side*r*0.48 - Math.sin(fa)*r*0.05;
-      pctx.beginPath();
-      pctx.moveTo(tipX, tipY);
-      pctx.lineTo(p1X, p1Y);
-      pctx.lineTo(p2X, p2Y);
-      pctx.closePath(); pctx.fill();
+      const tipX = hx + Math.cos(perp)*side*r*0.62 - Math.cos(fa)*r*0.48;
+      const tipY = hy + Math.sin(perp)*side*r*0.62 - Math.sin(fa)*r*0.48;
+      const p1X  = hx + Math.cos(perp)*side*r*0.36 - Math.cos(fa)*r*0.10;
+      const p1Y  = hy + Math.sin(perp)*side*r*0.36 - Math.sin(fa)*r*0.10;
+      const p2X  = hx + Math.cos(perp)*side*r*0.56 + Math.cos(fa)*r*0.08;
+      const p2Y  = hy + Math.sin(perp)*side*r*0.56 + Math.sin(fa)*r*0.08;
+      ctx.beginPath();
+      ctx.moveTo(tipX,tipY); ctx.lineTo(p1X,p1Y); ctx.lineTo(p2X,p2Y);
+      ctx.closePath(); ctx.fill();
     } else {
-      const ex = hx + Math.cos(perp)*side*r*0.46, ey = hy + Math.sin(perp)*side*r*0.46;
-      pctx.beginPath(); pctx.arc(ex, ey, r*0.2, 0, Math.PI*2); pctx.fill();
+      const ex = hx + Math.cos(perp)*side*r*0.58, ey = hy + Math.sin(perp)*side*r*0.58;
+      ctx.beginPath(); ctx.arc(ex, ey, r*0.2, 0, Math.PI*2); ctx.fill();
     }
   });
 
-  // 鼻
-  pctx.fillStyle = '#1a0808';
-  pctx.beginPath(); pctx.arc(hx + Math.cos(fa)*r*0.43, hy + Math.sin(fa)*r*0.43, r*0.15, 0, Math.PI*2); pctx.fill();
+  ctx.fillStyle = '#1a0808';
+  ctx.beginPath(); ctx.arc(hx+Math.cos(fa)*r*0.43, hy+Math.sin(fa)*r*0.43, r*0.15, 0, Math.PI*2); ctx.fill();
 
-  // 目
-  [-1, 1].forEach(side => {
+  [-1,1].forEach(side => {
     const ex = hx + Math.cos(perp)*side*r*0.27 + Math.cos(fa)*r*0.16;
     const ey = hy + Math.sin(perp)*side*r*0.27 + Math.sin(fa)*r*0.16;
-    pctx.fillStyle = '#100808';
-    pctx.beginPath(); pctx.arc(ex, ey, r*0.13, 0, Math.PI*2); pctx.fill();
-    pctx.fillStyle = 'rgba(255,255,255,0.5)';
-    pctx.beginPath(); pctx.arc(ex + r*0.04, ey - r*0.04, r*0.05, 0, Math.PI*2); pctx.fill();
+    ctx.fillStyle = '#100808';
+    ctx.beginPath(); ctx.arc(ex, ey, r*0.13, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(ex+r*0.04, ey-r*0.04, r*0.05, 0, Math.PI*2); ctx.fill();
   });
 
-  // しっぽ (プレビューではゆっくり振る)
-  const ta = fa + Math.PI + Math.sin((performance.now ? performance.now()/200 : 0)) * 0.7;
-  pctx.strokeStyle = body; pctx.lineWidth = 3.5; pctx.lineCap = 'round';
-  pctx.beginPath();
-  pctx.moveTo(-Math.cos(fa)*r*0.65, -Math.sin(fa)*r*0.65);
-  pctx.quadraticCurveTo(Math.cos(ta)*r, Math.sin(ta)*r, Math.cos(ta)*r*1.6, Math.sin(ta)*r*1.6);
-  pctx.stroke();
+  const ta2 = fa + Math.PI + Math.sin((performance.now ? performance.now()/500 : 0))*0.65;
+  ctx.strokeStyle = body; ctx.lineWidth = 2.8; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-Math.cos(fa)*r*0.65, -Math.sin(fa)*r*0.65);
+  ctx.quadraticCurveTo(Math.cos(ta2)*r, Math.sin(ta2)*r, Math.cos(ta2)*r*1.6, Math.sin(ta2)*r*1.6);
+  ctx.stroke();
 
-  pctx.restore();
+  ctx.restore();
+  ctx = savedCtx;
 }
 
 // ============================================================
@@ -3760,6 +3793,9 @@ function addInput(row, arr, idx, onChange) {
 
 function setupDebug() {
   document.getElementById('dbg-close').addEventListener('click', () => {
+    // 吠え倍率を反映
+    const bm = parseFloat(document.getElementById('dbg-bark-mul').value);
+    if (!isNaN(bm) && bm > 0) BARK_INSTANT_MUL = bm;
     showScene(GAME._returnScene || 'menu');
   });
   document.getElementById('dbg-load-default').addEventListener('click', () => {
@@ -3812,6 +3848,12 @@ window.addEventListener('DOMContentLoaded', () => {
   setupDebug();
   setupInput();
   showScene('menu');
+  // 吠え倍率の即時反映
+  const barkMulEl = document.getElementById('dbg-bark-mul');
+  if (barkMulEl) barkMulEl.addEventListener('input', () => {
+    const v = parseFloat(barkMulEl.value);
+    if (!isNaN(v) && v > 0) BARK_INSTANT_MUL = v;
+  });
   requestAnimationFrame(loop);
 });
 
