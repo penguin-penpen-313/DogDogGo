@@ -651,7 +651,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
   <button id="bark-btn">🐾<br>吠える</button>
 
   <div id="key-hint">WASD/矢印=移動 ・ Space=吠える</div>
-  <button id="give-up-btn" style="position:fixed;bottom:calc(var(--safe-bottom)+28px);left:calc(var(--safe-left)+8px);z-index:30;background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:none;">Give Up</button>
+  <button id="give-up-btn" style="position:fixed;bottom:calc(var(--safe-bottom)+160px);right:calc(var(--safe-right)+12px);z-index:30;background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;display:none;">Give Up</button>
 
 </div>
 
@@ -3306,20 +3306,30 @@ function drawAll() {
     // 4. 柵
     drawPens();
 
-    // 4. 動物 (y順)
-    const animals = ENTITIES.filter(e => e.type !== 'dog' && e.type !== 'tractor' && e.type !== 'truck');
-    animals.sort((a, b) => a.y - b.y);
-    animals.forEach(e => {
-      if (!isVisible(e.x, e.y, 60)) return;
-      try { drawAnimal(e); } catch(err) { console.error('drawAnimal err', e.type, err); }
+    // 4. 全動物+犬+車両を大きさ順 (小さい=下、大きい=上) + 同サイズはy順
+    // 描画順: 鶏→ガチョウ→犬→狼→羊(3種)→豚→牛→車両
+    const LAYER_RANK = {
+      chicken:0, goose:1, dog:2, wolf:3,
+      white_sheep:4, black_sheep:4, bh_sheep:4,
+      pig:5, cow:6, tractor:7, truck:7,
+    };
+    const allEntities = ENTITIES.filter(e => isVisible(e.x, e.y, 80));
+    allEntities.sort((a, b) => {
+      const ra = LAYER_RANK[a.type] ?? 3;
+      const rb = LAYER_RANK[b.type] ?? 3;
+      if (ra !== rb) return ra - rb;
+      return a.y - b.y;
+    });
+    allEntities.forEach(e => {
+      try {
+        if (e.type === 'dog') drawDog(e, DOG_CUSTOM);
+        else if (e.type === 'tractor') drawTractor(e);
+        else if (e.type === 'truck') drawTruck(e);
+        else drawAnimal(e);
+      } catch(err) { console.error('draw err', e.type, err); }
     });
 
-    // 5. 犬
-    if (isVisible(dog.x, dog.y, 60)) {
-      try { drawDog(dog, DOG_CUSTOM); } catch(err) { console.error('drawDog err', err); }
-    }
-
-    // 6. 木・建物・車両 (動物より上、y順)
+    // 5. 木・建物 (動物より上、y順)
     const overhead = [];
     TREES.forEach(t => {
       if (isVisible(t.x, t.y, t.r + 20)) overhead.push({kind:'tree', y:t.y, obj:t});
@@ -3327,20 +3337,11 @@ function drawAll() {
     HUTS.forEach(h => {
       if (isVisible(h.x, h.y, Math.max(h.w, h.h) + 20)) overhead.push({kind:'hut', y:h.y, obj:h});
     });
-    ENTITIES.forEach(e => {
-      if (e.type === 'tractor' || e.type === 'truck') {
-        if (isVisible(e.x, e.y, 60)) overhead.push({kind:'vehicle', y:e.y, obj:e});
-      }
-    });
     overhead.sort((a, b) => a.y - b.y);
     overhead.forEach(item => {
       try {
         if (item.kind === 'tree') drawOneTree(item.obj);
         else if (item.kind === 'hut') drawOneHut(item.obj);
-        else if (item.kind === 'vehicle') {
-          if (item.obj.type === 'tractor') drawTractor(item.obj);
-          else drawTruck(item.obj);
-        }
       } catch(err) { console.error('overhead err', item.kind, err); }
     });
 
