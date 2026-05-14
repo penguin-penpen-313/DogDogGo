@@ -210,8 +210,8 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
 
 /* ==== Dog preview & customization ==== */
 .dog-preview {
-  width: 180px;
-  height: 180px;
+  width: 260px;
+  height: 260px;
   background: #2a4a28;
   border: 3px solid var(--border);
   border-radius: 8px;
@@ -584,7 +584,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
   <p class="sub" id="wait-desc">犬のすがたを選んで、フィールドへ出発！</p>
 
   <div class="dog-preview">
-    <canvas id="dog-preview-canvas" width="160" height="160"></canvas>
+    <canvas id="dog-preview-canvas" width="240" height="240"></canvas>
   </div>
 
   <div class="card">
@@ -651,7 +651,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
   <button id="bark-btn">🐾<br>吠える</button>
 
   <div id="key-hint">WASD/矢印=移動 ・ Space=吠える</div>
-  <button id="give-up-btn" style="position:fixed;top:calc(var(--safe-top)+8px);right:calc(var(--safe-right)+8px);z-index:30;background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;display:none;">あきらめ</button>
+  <button id="give-up-btn" style="position:fixed;bottom:calc(var(--safe-bottom)+28px);left:calc(var(--safe-left)+8px);z-index:30;background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;display:none;">Give Up</button>
 
 </div>
 
@@ -1656,6 +1656,9 @@ function computeForces(e, dt) {
     }
   }
 
+  // NaN/Inf を 0 に (建物衝突などで発生しうる)
+  if (!isFinite(fx)) fx = 0;
+  if (!isFinite(fy)) fy = 0;
   return [fx, fy];
 }
 
@@ -1807,13 +1810,28 @@ function updateDog(dt, ix, iy) {
   dog.vx = dog.vx + (targetVx - dog.vx) * t;
   dog.vy = dog.vy + (targetVy - dog.vy) * t;
 
-  // 犬への外力 (車両・他動物・障害物)
+  // 犬への外力 (車両・他動物・障害物) - 高倍率 + NaN ガード
   try {
     const [fx, fy] = computeForces(dog, dt);
-    const forceMul = 0.008;  // 犬への外力倍率 (操作感を損なわない程度)
-    dog.vx += fx * forceMul * dt;
-    dog.vy += fy * forceMul * dt;
-  } catch(e) {}
+    const forceMul = 0.25;
+    const nvx = dog.vx + fx * forceMul * dt;
+    const nvy = dog.vy + fy * forceMul * dt;
+    if (isFinite(nvx) && isFinite(nvy)) { dog.vx = nvx; dog.vy = nvy; }
+  } catch(e2) { console.error('dog force err', e2); }
+  // 車両との硬い衝突: 物理的に押し出す
+  for (const ev of ENTITIES) {
+    if (ev.type !== 'tractor' && ev.type !== 'truck') continue;
+    const dxv = dog.x - ev.x, dyv = dog.y - ev.y;
+    const dv = Math.hypot(dxv, dyv);
+    const minD = ev.size * 1.0 + dog.size * 0.8;
+    if (dv < minD && dv > 0.1) {
+      const push = (minD - dv) / dv;
+      dog.x += dxv * push * 1.2;
+      dog.y += dyv * push * 1.2;
+      dog.vx += dxv/dv * 80;
+      dog.vy += dyv/dv * 80;
+    }
+  }
 
   // 池で減速
   for (const p of PONDS) {
@@ -1838,6 +1856,11 @@ function updateDog(dt, ix, iy) {
 
   dog.x += dog.vx * dt;
   dog.y += dog.vy * dt;
+
+  // NaN/Inf ガード (建物接触などで座標が壊れた場合にリセット)
+  if (!isFinite(dog.x) || !isFinite(dog.y)) {
+    dog.x = 0; dog.y = 0; dog.vx = 0; dog.vy = 0;
+  }
 
   if (sp > 5) dog.heading = Math.atan2(dog.vy, dog.vx);
 
@@ -3340,7 +3363,7 @@ function drawAll() {
       ctx.font = `bold ${Math.round(52 * wScale())}px sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.strokeStyle = 'rgba(80,40,0,0.8)'; ctx.lineWidth = 5;
-      const msg = `🔒 ${rem10}`;
+      const msg = `LOCK: ${rem10}s`;
       ctx.strokeText(msg, CW/2, CH * 0.2);
       ctx.fillText(msg, CW/2, CH * 0.2);
       ctx.restore();
@@ -3732,12 +3755,13 @@ function drawDogPreview() {
   // プレビューキャンバスの実サイズに合わせてスケーリング (全身が映るように)
   const previewBaseR = Math.min(cvs.width, cvs.height) * 0.22;
   const r = previewBaseR * szMul;
-  const fa = Math.PI / 2;
+  const fa = 0;  // 右向き (横向き犬で全身収まる)
   const body = custom.color;
   const sub = custom.subColor || shadeColor(body, 0.65);
 
   ctx.save();
-  ctx.translate(cvs.width/2, cvs.height/2);
+  // 尻尾は後方 (左側) に伸びるため、少し右にオフセット
+  ctx.translate(cvs.width * 0.55, cvs.height * 0.5);
 
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
   ctx.beginPath(); ctx.ellipse(2, 5, r*0.82, r*0.33, 0, 0, Math.PI*2); ctx.fill();
