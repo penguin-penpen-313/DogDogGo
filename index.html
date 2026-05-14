@@ -575,7 +575,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
     <button class="btn primary" id="start-btn">はじめる</button>
   </div>
   <button class="btn ghost" id="to-debug-1">⚙ デバッグ画面</button>
-  <div id="version-tag">v0.28 "DogDogGo"</div>
+  <div id="version-tag">v0.29 "DogDogGo"</div>
 </div>
 
 <!-- ====================== WAITING SCENE ====================== -->
@@ -638,10 +638,11 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
       <div class="hud-chip-value" id="hud-level">1</div>
     </div>
     <div id="hud-targets"></div>
-    <div class="hud-chip">
-      <div class="hud-chip-label">BARK</div>
-      <div class="hud-chip-value" id="hud-bark">100%</div>
+    <div class="hud-chip" id="hud-timer-chip">
+      <div class="hud-chip-label">TIME</div>
+      <div class="hud-chip-value" id="hud-timer">10:00</div>
     </div>
+    
   </div>
   <div id="joystick">
     <div id="joystick-base"></div>
@@ -650,7 +651,8 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
   <button id="bark-btn">🐾<br>吠える</button>
 
   <div id="key-hint">WASD/矢印=移動 ・ Space=吠える</div>
-  <div id="farmer-alert">牧場主に近づいている！ あと<span id="farmer-bark-count">3</span>回吠えたらゲーム終了</div>
+  <button id="give-up-btn" style="position:fixed;top:calc(var(--safe-top)+8px);right:calc(var(--safe-right)+8px);z-index:30;background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;display:none;">あきらめ</button>
+
 </div>
 
 <!-- ====================== RESULT SCENE ====================== -->
@@ -737,7 +739,10 @@ const DOG_COLORS = [
 
 const BARK_RANGE = 360;
 let BARK_INSTANT_MUL = 10000;  // 吠え瞬間の斥力倍率 (デバッグ設定可)
-const FARMER_BARK_RANGE = 140;  // 近距離で吠えないとカウントされない
+const TIME_LIMIT = 600;  // 10分
+let timeRemaining = TIME_LIMIT;
+let allInPenTimer = 0;  // 全動物柵内カウント (10秒で終了)
+let gameEndCooldown = 0;  // ゲーム終了防止用クールダウン
 
 // ============================================================
 // DEFAULT_PARAMS: 社会力モデルのデフォルト値
@@ -745,16 +750,16 @@ const FARMER_BARK_RANGE = 140;  // 近距離で吠えないとカウントされ
 const DEFAULT_PARAMS = {
   white_sheep: {
     label:"\u767d\u7f8a", group:"sheep", pen:"sheep",
-    size:[14,18], maxSpeed:[250,300], inertia:[0.82,0.92], maxForce:[1200,1800],
+    size:[14,18], maxSpeed:[200,300], inertia:[0.82,0.92], maxForce:[2000,5000],
     waterSlow:0.2, avoidForest:true,
     react:{
       dog:{apS:[2200,2800],apR:[150,200],prS:[1500,2500],prR:[100,200]},
       wolf:{apS:[2600,3200],apR:[380,460],prS:[1500,3000],prR:[260,340]},
-      sheep:{flock:[-50,-100],flockR:[100,150],sep:[2000,3000],sepR:[30,40]},
+      sheep:{flock:[-50,-200],flockR:[100,150],sep:[2000,3000],sepR:[60,80]},
       goose:{sep:[2000,3000],sepR:[20,30]},
-      chicken:{sep:[30,50],sepR:[20,28]},
-      cow:{sep:[60,90],sepR:[28,42]},
-      pig:{sep:[60,90],sepR:[28,42]},
+      chicken:{sep:[500,1000],sepR:[10,20]},
+      cow:{sep:[2000,3000],sepR:[20,30]},
+      pig:{sep:[2000,3000],sepR:[20,30]},
       tractor:{apS:[500,2200],apR:[240,320],prS:[2000,5000],prR:[50,180]},
       truck:{apS:[500,2200],apR:[240,320],prS:[2000,5000],prR:[50,180]},
       farmer:{prS:[-100,1000],prR:[50,100]}
@@ -766,169 +771,167 @@ const DEFAULT_PARAMS = {
   },
   black_sheep: {
     label:"\u9ed2\u7f8a", group:"sheep", pen:"black_sheep",
-    size:[14,18], maxSpeed:[240,310], inertia:[0.82,0.92], maxForce:[1200,1800],
-    waterSlow:0.5, avoidForest:true,
+    size:[14,18], maxSpeed:[200,300], inertia:[0.82,0.92], maxForce:[2000,5000],
+    waterSlow:0.2, avoidForest:true,
     react:{
-      dog:{apS:[2200,2800],apR:[340,420],prS:[1400,1900],prR:[220,300]},
-      wolf:{apS:[2600,3200],apR:[380,460],prS:[1800,2400],prR:[260,340]},
-      sheep:{flock:[-18,-26],flockR:[100,150],sep:[150,200],sepR:[22,32]},
-      goose:{sep:[40,60],sepR:[22,30]},
-      chicken:{sep:[30,50],sepR:[20,28]},
-      cow:{sep:[60,90],sepR:[28,42]},
-      pig:{sep:[60,90],sepR:[28,42]},
-      tractor:{apS:[1600,2200],apR:[240,320],prS:[600,900],prR:[120,180]},
-      truck:{apS:[1600,2200],apR:[240,320],prS:[600,900],prR:[120,180]},
-      farmer:{prS:[150,220],prR:[70,100]}
+      dog:{apS:[2200,2800],apR:[150,200],prS:[1400,2500],prR:[100,200]},
+      wolf:{apS:[2600,3200],apR:[380,460],prS:[1500,3000],prR:[260,340]},
+      sheep:{flock:[-50,-200],flockR:[100,150],sep:[2000,3000],sepR:[60,80]},
+      goose:{sep:[2000,3000],sepR:[20,30]},
+      chicken:{sep:[500,1000],sepR:[10,20]},
+      cow:{sep:[2000,3000],sepR:[20,30]},
+      pig:{sep:[2000,3000],sepR:[20,30]},
+      tractor:{apS:[500,2200],apR:[240,320],prS:[2000,5000],prR:[50,180]},
+      truck:{apS:[500,2200],apR:[240,320],prS:[2000,5800],prR:[50,180]},
+      farmer:{prS:[-100,1000],prR:[50,100]}
     },
-    goalAttract:[6,12], goalR:[300,400], wander:[40,60], wanderTurn:[2,2.4],
-    pond:{str:[200,350],range:[40,80]}, tree:{str:[260,340],range:[24,36]},
-    hut:{str:[300,380],range:[28,40]}, fence:{str:[400,500],range:[40,60]},
-    forest:{str:[600,900],range:[140,200]},
+    goalAttract:[0,50], goalR:[300,400], wander:[40,60], wanderTurn:[2,2.4],
+    pond:{str:[1000,3000],range:[40,80]}, tree:{str:[3000,5000],range:[24,36]},
+    hut:{str:[3000,5000],range:[28,40]}, fence:{str:[3000,5000],range:[40,60]},
+    forest:{str:[3000,5000],range:[50,100]},
   },
   bh_sheep: {
     label:"\u982d\u9ed2\u7f8a", group:"sheep", pen:"bh_sheep",
-    size:[14,18], maxSpeed:[240,310], inertia:[0.82,0.92], maxForce:[1200,1800],
-    waterSlow:0.5, avoidForest:true,
+    size:[14,18], maxSpeed:[200,300], inertia:[0.82,0.92], maxForce:[2000,5000],
+    waterSlow:0.2, avoidForest:true,
     react:{
-      dog:{apS:[2200,2800],apR:[340,420],prS:[1400,1900],prR:[220,300]},
-      wolf:{apS:[2600,3200],apR:[380,460],prS:[1800,2400],prR:[260,340]},
-      sheep:{flock:[-18,-26],flockR:[100,150],sep:[150,200],sepR:[22,32]},
-      goose:{sep:[40,60],sepR:[22,30]},
-      chicken:{sep:[30,50],sepR:[20,28]},
-      cow:{sep:[60,90],sepR:[28,42]},
-      pig:{sep:[60,90],sepR:[28,42]},
-      tractor:{apS:[1600,2200],apR:[240,320],prS:[600,900],prR:[120,180]},
-      truck:{apS:[1600,2200],apR:[240,320],prS:[600,900],prR:[120,180]},
-      farmer:{prS:[150,220],prR:[70,100]}
+      dog:{apS:[2200,2800],apR:[150,200],prS:[1400,2500],prR:[100,200]},
+      wolf:{apS:[2600,3200],apR:[380,460],prS:[1800,3000],prR:[260,340]},
+      sheep:{flock:[-50,-200],flockR:[100,150],sep:[2000,3000],sepR:[60,80]},
+      goose:{sep:[2000,3000],sepR:[20,30]},
+      chicken:{sep:[500,1000],sepR:[10,20]},
+      cow:{sep:[2000,3000],sepR:[20,30]},
+      pig:{sep:[2000,3000],sepR:[20,30]},
+      tractor:{apS:[500,2200],apR:[240,320],prS:[2000,5000],prR:[50,180]},
+      truck:{apS:[500,2200],apR:[240,320],prS:[2000,5800],prR:[50,180]},
+      farmer:{prS:[-100,1000],prR:[50,100]}
     },
-    goalAttract:[6,12], goalR:[300,400], wander:[40,60], wanderTurn:[2,2.4],
-    pond:{str:[200,350],range:[40,80]}, tree:{str:[260,340],range:[24,36]},
-    hut:{str:[300,380],range:[28,40]}, fence:{str:[400,500],range:[40,60]},
-    forest:{str:[600,900],range:[140,200]},
+    goalAttract:[0,50], goalR:[300,400], wander:[40,60], wanderTurn:[2,2.4],
+    pond:{str:[1000,3000],range:[40,80]}, tree:{str:[3000,5000],range:[24,36]},
+    hut:{str:[3000,5000],range:[28,40]}, fence:{str:[3000,5000],range:[40,60]},
+    forest:{str:[3000,5000],range:[50,200]},
   },
   goose: {
     label:"\u30ac\u30c1\u30e7\u30a6", group:"goose", pen:"goose",
-    size:[8,11], maxSpeed:[190,240], inertia:[0.76,0.86], maxForce:[1000,1600],
+    size:[8,11], maxSpeed:[150,200], inertia:[0.76,0.86], maxForce:[2000,5000],
     waterSlow:1, avoidForest:true,
     react:{
-      dog:{apS:[1800,2400],apR:[380,460],prS:[1200,1800],prR:[260,340]},
+      dog:{apS:[2000,3000],apR:[200,350],prS:[1200,1800],prR:[200,300]},
       wolf:{apS:[2200,2800],apR:[400,480],prS:[1500,2000],prR:[280,360]},
-      goose:{flock:[-40,-60],flockR:[120,180],sep:[300,450],sepR:[45,70]},
-      sheep:{sep:[180,260],sepR:[35,55]},
-      chicken:{sep:[160,220],sepR:[32,48]},
-      cow:{sep:[220,300],sepR:[40,60]},
-      pig:{sep:[220,300],sepR:[40,60]},
-      tractor:{apS:[1400,1800],apR:[240,320],prS:[600,900],prR:[140,190]},
-      truck:{apS:[1400,1800],apR:[240,320],prS:[600,900],prR:[140,190]},
-      farmer:{prS:[150,220],prR:[70,100]}
+      goose:{flock:[-100,-200],flockR:[120,180],sep:[2000,3000],sepR:[45,70]},
+      sheep:{sep:[2000,3000],sepR:[35,55]},
+      chicken:{sep:[2000,3000],sepR:[32,48]},
+      cow:{sep:[2000,3000],sepR:[40,60]},
+      pig:{sep:[2000,3000],sepR:[40,60]},
+      tractor:{apS:[1500,2000],apR:[240,320],prS:[2000,3000],prR:[80,200]},
+      truck:{apS:[1400,2000],apR:[240,320],prS:[2000,3000],prR:[80,200]},
+      farmer:{prS:[1000,2000],prR:[50,800]}
     },
-    goalAttract:[5,10], goalR:[280,380], wander:[50,75], wanderTurn:[2.2,2.8],
-    pond:{str:[-120,-180],range:[280,400]}, tree:{str:[260,340],range:[24,36]},
-    hut:{str:[300,380],range:[28,40]}, fence:{str:[400,500],range:[40,60]},
-    forest:{str:[600,900],range:[140,200]},
+    goalAttract:[0,100], goalR:[280,380], wander:[50,75], wanderTurn:[2.2,2.8],
+    pond:{str:[-120,-180],range:[280,400]}, tree:{str:[3000,5000],range:[24,36]},
+    hut:{str:[3000,5000],range:[28,40]}, fence:{str:[3000,5000],range:[40,60]},
+    forest:{str:[3000,5000],range:[140,200]},
   },
   chicken: {
     label:"\u9d8f", group:"chicken", pen:"chicken",
-    size:[6,8], maxSpeed:[180,260], inertia:[0.74,0.86], maxForce:[900,1500],
+    size:[6,8], maxSpeed:[230,280], inertia:[0.74,0.86], maxForce:[2000,3000],
     waterSlow:0.5, avoidForest:true,
     react:{
-      dog:{apS:[2000,2600],apR:[320,400],prS:[1200,1700],prR:[220,300]},
+      dog:{apS:[2000,2600],apR:[200,350],prS:[1000,1500],prR:[180,250]},
       wolf:{apS:[2400,3000],apR:[360,440],prS:[1500,2000],prR:[260,340]},
-      chicken:{flock:[-6,-12],flockR:[80,120],sep:[120,180],sepR:[15,25]},
-      sheep:{sep:[180,260],sepR:[30,46]},
-      goose:{sep:[180,260],sepR:[30,46]},
-      cow:{sep:[240,320],sepR:[40,60]},
-      pig:{sep:[240,320],sepR:[40,60]},
-      tractor:{apS:[1600,2200],apR:[260,320],prS:[800,1200],prR:[150,200]},
-      truck:{apS:[1600,2200],apR:[260,320],prS:[800,1200],prR:[150,200]},
-      farmer:{prS:[120,180],prR:[60,90]}
+      chicken:{flock:[-100,100],flockR:[80,120],sep:[2000,3000],sepR:[15,25]},
+      sheep:{sep:[2000,3000],sepR:[30,46]},
+      goose:{sep:[2000,3000],sepR:[30,46]},
+      cow:{sep:[2000,3000],sepR:[40,60]},
+      pig:{sep:[2000,3000],sepR:[40,60]},
+      tractor:{apS:[1600,2200],apR:[260,320],prS:[2000,3000],prR:[80,200]},
+      truck:{apS:[1600,2200],apR:[260,320],prS:[2000,3000],prR:[80,200]},
+      farmer:{prS:[-100,2000],prR:[60,90]}
     },
-    goalAttract:[5,10], goalR:[240,340], wander:[60,90], wanderTurn:[3,4],
-    pond:{str:[260,400],range:[40,80]}, tree:{str:[200,280],range:[18,28]},
-    hut:{str:[240,320],range:[22,34]}, fence:{str:[380,480],range:[40,60]},
-    forest:{str:[600,900],range:[140,200]},
+    goalAttract:[100,500], goalR:[240,340], wander:[100,1000], wanderTurn:[3,4],
+    pond:{str:[2000,3000],range:[40,80]}, tree:{str:[2000,3000],range:[18,28]},
+    hut:{str:[2000,3000],range:[22,34]}, fence:{str:[2000,3000],range:[40,60]},
+    forest:{str:[2000,3000],range:[140,200]},
   },
   cow: {
     label:"\u725b", group:"cow", pen:"cow",
-    size:[15,18], maxSpeed:[120,170], inertia:[0.88,0.94], maxForce:[1400,2000],
+    size:[15,18], maxSpeed:[120,170], inertia:[0.88,0.94], maxForce:[5000,8000],
     waterSlow:0.5, avoidForest:true,
     react:{
-      dog:{apS:[1400,2000],apR:[280,360],prS:[900,1400],prR:[180,260]},
+      dog:{apS:[1000,2000],apR:[280,360],prS:[500,1400],prR:[100,260]},
       wolf:{apS:[1800,2400],apR:[320,400],prS:[1100,1600],prR:[220,300]},
-      cow:{flock:[-6,-12],flockR:[120,180],sep:[160,240],sepR:[35,55]},
-      sheep:{sep:[100,160],sepR:[30,44]},
-      goose:{sep:[80,120],sepR:[26,36]},
-      chicken:{sep:[80,120],sepR:[26,36]},
-      pig:{sep:[140,200],sepR:[35,50]},
-      tractor:{apS:[1200,1600],apR:[220,280],prS:[700,1000],prR:[150,200]},
-      truck:{apS:[1200,1600],apR:[220,280],prS:[700,1000],prR:[150,200]},
-      farmer:{prS:[100,160],prR:[60,90]}
+      cow:{flock:[-10,-200],flockR:[120,180],sep:[2000,3000],sepR:[60,100]},
+      sheep:{sep:[2000,3000],sepR:[60,100]},
+      goose:{sep:[50,1000],sepR:[26,36]},
+      chicken:{sep:[50,500],sepR:[26,36]},
+      pig:{sep:[2000,3000],sepR:[60,100]},
+      tractor:{apS:[1200,1600],apR:[100,200],prS:[2000,3000],prR:[100,200]},
+      truck:{apS:[1200,1600],apR:[220,280],prS:[2000,3000],prR:[150,200]},
+      farmer:{prS:[100,1600],prR:[60,90]}
     },
-    goalAttract:[4,8], goalR:[250,380], wander:[30,45], wanderTurn:[1.5,2],
-    pond:{str:[220,340],range:[50,90]}, tree:{str:[260,340],range:[28,42]},
-    hut:{str:[300,380],range:[32,46]}, fence:{str:[380,480],range:[44,64]},
-    forest:{str:[600,900],range:[150,210]},
+    goalAttract:[4,8], goalR:[250,380], wander:[10,100], wanderTurn:[1.5,2],
+    pond:{str:[100,2000],range:[50,90]}, tree:{str:[2000,3000],range:[28,42]},
+    hut:{str:[2000,3000],range:[32,46]}, fence:{str:[2000,3000],range:[44,64]},
+    forest:{str:[2000,3000],range:[150,210]},
   },
   pig: {
     label:"\u8c5a", group:"pig", pen:"pig",
-    size:[12,15], maxSpeed:[160,220], inertia:[0.82,0.9], maxForce:[1400,2000],
+    size:[12,15], maxSpeed:[160,220], inertia:[0.82,0.9], maxForce:[5000,8000],
     waterSlow:0.5, avoidForest:true,
     react:{
-      dog:{apS:[1200,1800],apR:[260,340],prS:[700,1200],prR:[180,260]},
-      wolf:{apS:[1800,2400],apR:[320,400],prS:[1100,1600],prR:[220,300]},
-      pig:{sep:[80,140],sepR:[28,42]},
-      sheep:{sep:[140,200],sepR:[30,44]},
-      goose:{sep:[120,180],sepR:[28,40]},
-      chicken:{sep:[120,180],sepR:[28,40]},
-      cow:{sep:[160,220],sepR:[36,50]},
-      tractor:{apS:[1200,1600],apR:[220,280],prS:[700,1000],prR:[150,200]},
-      truck:{apS:[1200,1600],apR:[220,280],prS:[700,1000],prR:[150,200]},
-      farmer:{prS:[80,130],prR:[50,80]}
+      dog:{apS:[1200,1800],apR:[260,340],prS:[-5000,-5000],prR:[100,150]},
+      wolf:{apS:[1800,2400],apR:[320,400],prS:[-5000,-5000],prR:[100,180]},
+      pig:{sep:[2000,3000],sepR:[28,42]},
+      sheep:{sep:[2000,3000],sepR:[30,44]},
+      goose:{sep:[100,1000],sepR:[28,40]},
+      chicken:{sep:[50,1000],sepR:[28,40]},
+      cow:{sep:[2000,3000],sepR:[36,50]},
+      tractor:{apS:[1200,1600],apR:[220,280],prS:[2000,3000],prR:[150,200]},
+      truck:{apS:[1200,1600],apR:[220,280],prS:[2000,3000],prR:[150,200]},
+      farmer:{prS:[100,1600],prR:[50,80]}
     },
-    goalAttract:[5,10], goalR:[250,380], wander:[50,75], wanderTurn:[2.3,3],
-    pond:{str:[0,0],range:[0,0]}, tree:{str:[240,320],range:[26,38]},
-    hut:{str:[280,360],range:[30,44]}, fence:{str:[380,480],range:[42,60]},
-    forest:{str:[600,900],range:[140,200]},
+    goalAttract:[5,10], goalR:[250,380], wander:[10,100], wanderTurn:[2.3,3],
+    pond:{str:[0,0],range:[0,0]}, tree:{str:[2000,3000],range:[26,38]},
+    hut:{str:[2000,3000],range:[30,44]}, fence:{str:[2000,3000],range:[42,60]},
+    forest:{str:[2000,3000],range:[140,200]},
   },
   wolf: {
     label:"\u72fc", group:"wolf", pen:null,
-    size:[14,17], maxSpeed:[260,340], inertia:[0.82,0.9], maxForce:[1600,2200],
+    size:[14,17], maxSpeed:[260,340], inertia:[0.82,0.9], maxForce:[4000,6000],
     waterSlow:0.6, avoidForest:false,
     react:{
       sheep:{apS:[-400,-600],apR:[400,600],prS:[-200,-350],prR:[300,450]},
       goose:{apS:[-200,-350],apR:[280,400],prS:[-100,-180],prR:[200,300]},
       chicken:{apS:[-300,-450],apR:[300,450],prS:[-150,-240],prR:[220,320]},
-      cow:{apS:[-100,-180],apR:[250,380],prS:[-60,-120],prR:[180,260]},
-      pig:{apS:[-100,-180],apR:[250,380],prS:[-60,-120],prR:[180,260]},
-      dog:{apS:[1800,2400],apR:[420,520],prS:[800,1200],prR:[280,400]},
-      wolf:{sep:[180,260],sepR:[40,60]},
-      tractor:{prS:[200,320],prR:[100,160]},
-      truck:{prS:[200,320],prR:[100,160]},
+      cow:{apS:[-100,-180],apR:[250,380],prS:[-60,-120],prR:[80,260]},
+      pig:{apS:[-100,-180],apR:[250,380],prS:[2000,3000],prR:[80,150]},
+      dog:{apS:[1500,2000],apR:[250,350],prS:[2000,3000],prR:[150,300]},
+      wolf:{sep:[2000,3000],sepR:[40,60]},
+      tractor:{prS:[2000,3000],prR:[100,160]},
+      truck:{prS:[2000,3000],prR:[100,160]},
       farmer:{prS:[220,320],prR:[80,120]}
     },
-    goalAttract:[0,0], goalR:[0,0], wander:[20,35], wanderTurn:[0.8,1.4],
-    pond:{str:[180,300],range:[45,80]}, tree:{str:[240,320],range:[24,38]},
-    hut:{str:[280,360],range:[28,42]}, fence:{str:[360,460],range:[40,58]},
+    goalAttract:[0,0], goalR:[0,0], wander:[20,200], wanderTurn:[0.8,1.4],
+    pond:{str:[1000,2000],range:[45,80]}, tree:{str:[2000,3000],range:[24,38]},
+    hut:{str:[2000,3000],range:[28,42]}, fence:{str:[2000,3000],range:[40,58]},
     forest:{str:[0,0],range:[0,0]},
   },
   dog: {
     label:"\u72ac", group:"dog", pen:null,
-    size:[10,12], maxSpeed:[340,340], inertia:[0.5,0.5], maxForce:[1000,1000],
+    size:[10,12], maxSpeed:[340,340], inertia:[0.5,0.5], maxForce:[10000,10000],
     waterSlow:0.5, avoidForest:true,
     react:{
-      // 車両: 接近速度感知 + ごく近距離の強い斥力 (跳ねられ防止)
       tractor:{apS:[2000,3000],apR:[160,220],prS:[1800,2600],prR:[60,90]},
-      truck:  {apS:[2400,3600],apR:[160,220],prS:[2200,3200],prR:[60,90]},
-      // 動物: ごく近い時だけ弱い斥力 (衝突回避)
-      sheep:  {prS:[120,180],prR:[28,40]},
+      truck:{apS:[2400,3600],apR:[160,220],prS:[2200,3200],prR:[60,90]},
+      sheep:{prS:[120,180],prR:[28,40]},
       black_sheep:{prS:[120,180],prR:[28,40]},
-      bh_sheep:   {prS:[120,180],prR:[28,40]},
-      goose:  {prS:[100,160],prR:[28,40]},
+      bh_sheep:{prS:[120,180],prR:[28,40]},
+      goose:{prS:[100,160],prR:[28,40]},
       chicken:{prS:[100,160],prR:[22,35]},
-      cow:    {apS:[400,600],apR:[140,200],prS:[200,300],prR:[45,65]},
-      pig:    {apS:[500,700],apR:[140,200],prS:[180,260],prR:[40,58]},
-      wolf:   {prS:[600,900],prR:[80,120]},
-      farmer: {prS:[220,320],prR:[80,120]},
+      cow:{apS:[400,600],apR:[140,200],prS:[200,300],prR:[45,65]},
+      pig:{apS:[500,700],apR:[140,200],prS:[180,260],prR:[40,58]},
+      wolf:{prS:[600,900],prR:[80,120]},
+      farmer:{prS:[220,320],prR:[80,120]}
     },
     goalAttract:[0,0], goalR:[0,0], wander:[0,0], wanderTurn:[0,0],
     pond:{str:[0,0],range:[0,0]}, tree:{str:[0,0],range:[0,0]},
@@ -1322,9 +1325,8 @@ function buildField() {
     });
   }
 
-  // 5. 牧場主 (設置物を避けて配置)
-  const farmerPos = randPos(80) || [0, 0];
-  FARMER = { x: farmerPos[0], y: farmerPos[1] };
+  // 牧場主なし
+  FARMER = null;
 }
 
 // ============================================================
@@ -1799,12 +1801,19 @@ function updateDog(dt, ix, iy) {
   const target = dog.maxSpeed;
   const targetVx = ix * target;
   const targetVy = iy * target;
-  // 追従係数を大幅に上げて機敏化。入力あり=即追従、入力なし=素早く停止
   const hasInput = Math.abs(ix) + Math.abs(iy) > 0.05;
   const followRate = hasInput ? 28 : 18;
   const t = Math.min(1, followRate * dt);
   dog.vx = dog.vx + (targetVx - dog.vx) * t;
   dog.vy = dog.vy + (targetVy - dog.vy) * t;
+
+  // 犬への外力 (車両・他動物・障害物)
+  try {
+    const [fx, fy] = computeForces(dog, dt);
+    const forceMul = 0.008;  // 犬への外力倍率 (操作感を損なわない程度)
+    dog.vx += fx * forceMul * dt;
+    dog.vy += fy * forceMul * dt;
+  } catch(e) {}
 
   // 池で減速
   for (const p of PONDS) {
@@ -2030,7 +2039,7 @@ function doBark() {
   }
 }
 
-function endGame() {
+function endGame(reason) {
   // 判定
   const spec = LEVEL_SPEC;
   const totalBy = {};
@@ -2065,17 +2074,26 @@ function endGame() {
   GAME.prevTime = clearT;
   GAME._lastSuccess = success;
 
-  document.getElementById('result-verdict').textContent = success ? 'せいこう！' : 'しっぱい…';
+  const reasonStr = reason === 'timeout' ? 'タイムアップ' : reason === 'allIn' ? '全員柵内！' : 'あきらめ';
+  document.getElementById('result-verdict').textContent = success ? 'せいこう！' : 'しっぱい';
   document.getElementById('result-verdict').className = 'result-verdict ' + (success ? 'success' : 'fail');
   document.getElementById('result-sub').textContent =
-    `達成率 ${Math.round(ach*100)}% / 目標 ${Math.round(spec.successRate*100)}%  ・ タイム ${clearT.toFixed(1)}秒`;
+    `${reasonStr}  ・ 達成率 ${Math.round(ach*100)}% / 目標 ${Math.round(spec.successRate*100)}%  ・ タイム ${clearT.toFixed(1)}秒`;
 
   const tbl = document.getElementById('result-table');
   tbl.innerHTML = '';
   for (const p in totalBy) {
     const tr = document.createElement('tr');
-    const emoji = p==='sheep'?'🐑':p==='goose'?'🪿':p==='chicken'?'🐔':p==='cow'?'🐄':p==='pig'?'🐖':'?';
-    tr.innerHTML = `<td>${emoji} ${p}</td><td>${insideBy[p]||0} / ${totalBy[p]}</td>`;
+    const td1 = document.createElement('td');
+    td1.style.display = 'flex'; td1.style.alignItems = 'center'; td1.style.gap = '6px';
+    const ic = document.createElement('canvas');
+    ic.width = 24; ic.height = 24;
+    drawHUDIcon(ic, p);
+    td1.appendChild(ic);
+    td1.appendChild(Object.assign(document.createElement('span'), {textContent: p}));
+    const td2 = document.createElement('td');
+    td2.textContent = `${insideBy[p]||0} / ${totalBy[p]}`;
+    tr.appendChild(td1); tr.appendChild(td2);
     tbl.appendChild(tr);
   }
 
@@ -2119,7 +2137,15 @@ function drawHUDIcon(canvasEl, penType) {
 function updateHUD() {
   if (currentScene !== 'game' || !LEVEL_SPEC) return;
   document.getElementById('hud-level').textContent = GAME.level;
-  document.getElementById('hud-bark').textContent = Math.round(barkEffect*100) + '%';
+
+  // タイマー表示
+  const rem = Math.max(0, timeRemaining);
+  const mm = Math.floor(rem/60), ss = Math.floor(rem%60);
+  const timerEl = document.getElementById('hud-timer');
+  if (timerEl) {
+    timerEl.textContent = mm + ':' + String(ss).padStart(2,'0');
+    timerEl.style.color = rem < 60 ? '#ff6060' : '';
+  }
 
   // ターゲット
   const totalBy = {}, insideBy = {};
@@ -2144,7 +2170,6 @@ function updateHUD() {
     const full = got >= need;
     const row = document.createElement('div');
     row.className = 'target-row';
-    // canvas アイコン
     const ic = document.createElement('canvas');
     ic.className = 'target-icon';
     ic.width = 28; ic.height = 28;
@@ -2157,23 +2182,8 @@ function updateHUD() {
     t.appendChild(row);
   }
 
-  // Farmer alert & カウンターリセット
-  const alert = document.getElementById('farmer-alert');
-  if (FARMER && dog) {
-    const d = Math.hypot(FARMER.x - dog.x, FARMER.y - dog.y);
-    // 聞こえる範囲の1.5倍の距離で外に出たらリセット
-    if (d > FARMER_BARK_RANGE * 1.5) {
-      farmerNearBarks = 0;
-    }
-    if (d < FARMER_BARK_RANGE * 1.4) {
-      alert.classList.add('visible');
-      document.getElementById('farmer-bark-count').textContent = Math.max(0, 3 - farmerNearBarks);
-    } else {
-      alert.classList.remove('visible');
-    }
-  } else {
-    alert.classList.remove('visible');
-  }
+  // 全動物が柵内かチェック → allInPenTimer 更新は loop() 内で行う
+  return { totalBy, insideBy };
 }
 
 // ============================================================
@@ -3320,6 +3330,21 @@ function drawAll() {
     // 9. 吠え+オーバーレイ
     drawBarks();
     drawOffscreenMarkers();
+
+    // 全柵内カウントダウン表示
+    if (allInPenTimer > 0) {
+      const rem10 = Math.ceil(10 - allInPenTimer);
+      const alpha = 0.7 + Math.sin(totalT * Math.PI * 2) * 0.15;
+      ctx.save();
+      ctx.fillStyle = `rgba(255, 230, 80, ${alpha})`;
+      ctx.font = `bold ${Math.round(52 * wScale())}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.strokeStyle = 'rgba(80,40,0,0.8)'; ctx.lineWidth = 5;
+      const msg = `🔒 ${rem10}`;
+      ctx.strokeText(msg, CW/2, CH * 0.2);
+      ctx.fillText(msg, CW/2, CH * 0.2);
+      ctx.restore();
+    }
   } catch(err) {
     console.error('drawAll error:', err);
   }
@@ -3533,6 +3558,51 @@ function loop(ts) {
         if (active < LEVEL_SPEC.wolfMaxConcurrent) spawnWolf();
         GAME.nextWolfSpawn = totalT + LEVEL_SPEC.wolfInterval * (0.7 + Math.random()*0.6);
       }
+
+      // タイマーカウントダウン
+      if (gameEndCooldown > 0) {
+        gameEndCooldown -= dt;
+      } else {
+        timeRemaining -= dt;
+
+        // 全動物柵内チェック
+        if (LEVEL_SPEC) {
+          const totalBy = {}, insideBy = {};
+          LEVEL_SPEC.types.forEach(t => {
+            const p = PARAMS[t].pen;
+            totalBy[p] = (totalBy[p]||0) + LEVEL_SPEC.counts[t];
+          });
+          ENTITIES.forEach(e => {
+            const p = PARAMS[e.type].pen;
+            if (!p) return;
+            for (const pen of PENS) {
+              if (pen.penType === p && inPen(pen, e.x, e.y)) {
+                insideBy[p] = (insideBy[p]||0) + 1; break;
+              }
+            }
+          });
+          const allIn = Object.keys(totalBy).every(p => (insideBy[p]||0) >= totalBy[p]);
+          if (allIn) {
+            allInPenTimer += dt;
+            // 10秒カウント表示 (HUDのタイマーは上書きしない、drawAllでオーバーレイ)
+          } else {
+            allInPenTimer = 0;  // 一匹でも出たらリセット
+          }
+
+          // タイムアップ
+          if (timeRemaining <= 0) {
+            timeRemaining = 0;
+            endGame('timeout');
+            return;
+          }
+          // 10秒完了
+          if (allInPenTimer >= 10) {
+            endGame('allIn');
+            return;
+          }
+        }
+      }
+
       try { updateHUD(); } catch(err) { console.error('updateHUD err', err); }
     } catch(err) { console.error('update-block err', err); }
     drawAll();
@@ -3659,7 +3729,9 @@ function drawDogPreview() {
   ctx = pctx;
   const custom = DOG_CUSTOM;
   const szMul = custom.size === 's' ? 0.82 : (custom.size === 'l' ? 1.18 : 1.0);
-  const r = 22 * szMul;
+  // プレビューキャンバスの実サイズに合わせてスケーリング (全身が映るように)
+  const previewBaseR = Math.min(cvs.width, cvs.height) * 0.22;
+  const r = previewBaseR * szMul;
   const fa = Math.PI / 2;
   const body = custom.color;
   const sub = custom.subColor || shadeColor(body, 0.65);
@@ -3953,6 +4025,19 @@ window.addEventListener('DOMContentLoaded', () => {
   if (barkMulEl) barkMulEl.addEventListener('input', () => {
     const v = parseFloat(barkMulEl.value);
     if (!isNaN(v) && v > 0) BARK_INSTANT_MUL = v;
+  });
+  // あきらめボタン
+  const giveUpBtn = document.getElementById('give-up-btn');
+  if (giveUpBtn) {
+    giveUpBtn.addEventListener('click', () => { if (currentScene === 'game') endGame('giveup'); });
+  }
+  // showScene フック: ゲーム時にボタン表示
+  const _origShowScene = showScene;
+  window._showSceneHooked = true;
+  // give-up button visibility managed via loop
+  requestAnimationFrame(function giveUpVis() {
+    if (giveUpBtn) giveUpBtn.style.display = currentScene === 'game' ? '' : 'none';
+    requestAnimationFrame(giveUpVis);
   });
   requestAnimationFrame(loop);
 });
