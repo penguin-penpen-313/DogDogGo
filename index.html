@@ -633,16 +633,18 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
 <div class="scene" id="scene-game">
   <canvas id="game-canvas"></canvas>
   <div class="hud">
-    <div class="hud-chip">
-      <div class="hud-chip-label">LEVEL</div>
-      <div class="hud-chip-value" id="hud-level">1</div>
+    <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
+      <div class="hud-chip">
+        <div class="hud-chip-label">LEVEL</div>
+        <div class="hud-chip-value" id="hud-level">1</div>
+      </div>
+      <button id="give-up-btn" style="background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;display:none;">Give Up</button>
     </div>
     <div id="hud-targets"></div>
     <div class="hud-chip" id="hud-timer-chip">
       <div class="hud-chip-label">TIME</div>
       <div class="hud-chip-value" id="hud-timer">10:00</div>
     </div>
-    
   </div>
   <div id="joystick">
     <div id="joystick-base"></div>
@@ -651,7 +653,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
   <button id="bark-btn">🐾<br>吠える</button>
 
   <div id="key-hint">WASD/矢印=移動 ・ Space=吠える</div>
-  <button id="give-up-btn" style="position:fixed;bottom:calc(var(--safe-bottom)+160px);right:calc(var(--safe-right)+12px);z-index:30;background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;display:none;">Give Up</button>
+
 
 </div>
 
@@ -680,8 +682,11 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
       <button class="btn ghost small" id="dbg-load-json">読込</button>
       <button class="btn small" id="dbg-close">← 戻る</button>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--text);">
-      <label>吠え斥力倍率:</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;color:var(--text);">
+      <label>吠えCDタイム(秒):</label>
+      <input type="number" id="dbg-bark-cd" value="0.25" min="0.05" max="5" step="0.05" style="width:70px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;">
+      <span style="color:var(--text-faint)">（デフォルト0.25）</span>
+    </div>
       <input type="number" id="dbg-bark-mul" value="10000" min="1" max="5000" step="10" style="width:80px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px;">
       <span style="color:var(--text-faint)">（デフォルト100）</span>
     </div>
@@ -738,7 +743,8 @@ const DOG_COLORS = [
 ];
 
 const BARK_RANGE = 360;
-let BARK_INSTANT_MUL = 10000;  // 吠え瞬間の斥力倍率 (デバッグ設定可)
+let BARK_INSTANT_MUL = 10000;
+let BARK_COOLDOWN_TIME = 0.25;  // デバッグ設定可能  // 吠え瞬間の斥力倍率 (デバッグ設定可)
 const TIME_LIMIT = 600;  // 10分
 let timeRemaining = TIME_LIMIT;
 let allInPenTimer = 0;  // 全動物柵内カウント (10秒で終了)
@@ -907,8 +913,8 @@ const DEFAULT_PARAMS = {
       pig:{apS:[-100,-180],apR:[250,380],prS:[2000,3000],prR:[80,150]},
       dog:{apS:[1500,2000],apR:[250,350],prS:[2000,3000],prR:[150,300]},
       wolf:{sep:[2000,3000],sepR:[40,60]},
-      tractor:{prS:[2000,3000],prR:[100,160]},
-      truck:{prS:[2000,3000],prR:[100,160]},
+      tractor:{prS:[2000,3000],prR:[300,400]},
+      truck:{prS:[2000,3000],prR:[300,400]},
       farmer:{prS:[220,320],prR:[80,120]}
     },
     goalAttract:[0,0], goalR:[0,0], wander:[20,200], wanderTurn:[0.8,1.4],
@@ -940,7 +946,7 @@ const DEFAULT_PARAMS = {
   },
   tractor: {
     label:"\u30c8\u30e9\u30af\u30bf\u30fc", group:"tractor", pen:null,
-    size:[30,36], maxSpeed:[80,100], inertia:[1,1], maxForce:[20000,20000],
+    size:[30,36], maxSpeed:[30,60], inertia:[1,1], maxForce:[10000,10000],
     waterSlow:0.2, avoidForest:true, turnRate:0.7,
     react:{
       sheep:{prS:[0,20],prR:[80,120]},
@@ -948,9 +954,9 @@ const DEFAULT_PARAMS = {
       chicken:{prS:[0,10],prR:[80,120]},
       cow:{prS:[0,20],prR:[100,140]},
       pig:{prS:[0,20],prR:[100,140]},
-      dog:{prS:[0,10],prR:[80,120]},
+      dog:{prS:[500,1000],prR:[80,120]},
       wolf:{prS:[-200,-200],prR:[500,500]},
-      tractor:{prS:[50,100],prR:[80,120]},
+      tractor:{prS:[50,100],prR:[800,1200]},
       truck:{prS:[50,100],prR:[80,120]},
       farmer:{prS:[100,200],prR:[80,130]}
     },
@@ -1477,7 +1483,15 @@ function makeEntity(typeKey, x, y) {
   return e;
 }
 
-function reactKey(e) { return PARAMS[e.type].group; }
+function reactKey(o) {
+  // タイプ名を優先、なければグループ名
+  return o.type;
+}
+
+function getReactCoef(e, o) {
+  // タイプ名で探し、なければグループ名で探す
+  return e.reactCoef[o.type] || e.reactCoef[PARAMS[o.type].group] || null;
+}
 
 function pickRandomGoal(e) {
   const a = Math.random() * Math.PI * 2;
@@ -1497,7 +1511,7 @@ function computeForces(e, dt) {
   for (const o of ENTITIES) {
     if (o === e) continue;
     const ok = reactKey(o);
-    const coef = e.reactCoef[ok];
+    const coef = getReactCoef(e, o);
     if (!coef) continue;
     const dx = o.x - e.x, dy = o.y - e.y;
     const d = Math.hypot(dx, dy);
@@ -1813,7 +1827,7 @@ function updateDog(dt, ix, iy) {
   // 犬への外力 (車両・他動物・障害物) - 高倍率 + NaN ガード
   try {
     const [fx, fy] = computeForces(dog, dt);
-    const forceMul = 0.25;
+    const forceMul = 2.0;  // 犬への外力倍率 (動物衝突回避)
     const nvx = dog.vx + fx * forceMul * dt;
     const nvy = dog.vy + fy * forceMul * dt;
     if (isFinite(nvx) && isFinite(nvy)) { dog.vx = nvx; dog.vy = nvy; }
@@ -2047,7 +2061,7 @@ function doBark() {
   if (!dog || barkCooldown > 0 || currentScene !== 'game') return;
   if (barkEffect < 0.15) return;
   barks.push({ x: dog.x, y: dog.y, life: 1.0, r: 20 });
-  barkCooldown = 0.25;
+  barkCooldown = BARK_COOLDOWN_TIME;
   barkEffect = Math.max(0.15, barkEffect - 0.3);
 
   // 牧場主の近くで吠えた?
@@ -3754,7 +3768,7 @@ function drawDogPreview() {
   const custom = DOG_CUSTOM;
   const szMul = custom.size === 's' ? 0.82 : (custom.size === 'l' ? 1.18 : 1.0);
   // プレビューキャンバスの実サイズに合わせてスケーリング (全身が映るように)
-  const previewBaseR = Math.min(cvs.width, cvs.height) * 0.22;
+  const previewBaseR = Math.min(cvs.width, cvs.height) * 0.17;
   const r = previewBaseR * szMul;
   const fa = 0;  // 右向き (横向き犬で全身収まる)
   const body = custom.color;
@@ -3993,6 +4007,8 @@ function setupDebug() {
     // 吠え倍率を反映
     const bm = parseFloat(document.getElementById('dbg-bark-mul').value);
     if (!isNaN(bm) && bm > 0) BARK_INSTANT_MUL = bm;
+    const bc = parseFloat(document.getElementById('dbg-bark-cd')?.value || '0.25');
+    if (!isNaN(bc) && bc > 0) BARK_COOLDOWN_TIME = bc;
     showScene(GAME._returnScene || 'menu');
   });
   document.getElementById('dbg-load-default').addEventListener('click', () => {
@@ -4050,6 +4066,11 @@ window.addEventListener('DOMContentLoaded', () => {
   if (barkMulEl) barkMulEl.addEventListener('input', () => {
     const v = parseFloat(barkMulEl.value);
     if (!isNaN(v) && v > 0) BARK_INSTANT_MUL = v;
+  });
+  const barkCdEl = document.getElementById('dbg-bark-cd');
+  if (barkCdEl) barkCdEl.addEventListener('input', () => {
+    const v = parseFloat(barkCdEl.value);
+    if (!isNaN(v) && v > 0) BARK_COOLDOWN_TIME = v;
   });
   // あきらめボタン
   const giveUpBtn = document.getElementById('give-up-btn');
