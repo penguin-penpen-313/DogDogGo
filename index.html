@@ -290,11 +290,12 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
   background: linear-gradient(to bottom, rgba(10,26,15,0.85), rgba(10,26,15,0));
   pointer-events: none;
   z-index: 10;
-  display: flex;
+  display: none;
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
 }
+.hud.active { display: flex; }
 .hud-chip {
   background: rgba(10, 26, 15, 0.7);
   border: 1px solid var(--border);
@@ -580,6 +581,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
 
 <!-- ====================== WAITING SCENE ====================== -->
 <div class="scene" id="scene-waiting">
+  <div id="dbg-scene" style="position:fixed;top:0;right:0;background:red;color:white;padding:4px;font-size:11px;z-index:9999;pointer-events:none;"></div>
   <h2 id="wait-level" style="font-size: 24px; color: var(--yellow); margin-top: 8px;">LEVEL 1</h2>
   <p class="sub" id="wait-desc">犬のすがたを選んで、フィールドへ出発！</p>
 
@@ -632,13 +634,17 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
 <!-- ====================== GAME SCENE ====================== -->
 <div class="scene" id="scene-game">
   <canvas id="game-canvas"></canvas>
+</div>
+
+<!-- ゲームUI -->
   <div class="hud">
     <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
       <div class="hud-chip">
         <div class="hud-chip-label">LEVEL</div>
         <div class="hud-chip-value" id="hud-level">1</div>
       </div>
-      <button id="give-up-btn" style="background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;display:none;">Give Up</button>
+      <button id="give-up-btn" style="background:rgba(200,60,60,0.85);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">Give Up</button>
+      <button id="force-clear-btn" onclick="forceAnimalsToPens()" style="background:rgba(80,180,80,0.85);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;display:none;">強制クリア</button>
     </div>
     <div id="hud-targets"></div>
     <div class="hud-chip" id="hud-timer-chip">
@@ -655,11 +661,7 @@ h3 { margin: 12px 0 6px; font-size: 14px; color: var(--green); }
     <div id="joystick-knob"></div>
   </div>
   <button id="bark-btn">🐾<br>吠える</button>
-
   <div id="key-hint">WASD/矢印=移動 ・ Space=吠える</div>
-
-
-</div>
 
 <!-- ====================== RESULT SCENE ====================== -->
 <div class="scene" id="scene-result">
@@ -1102,10 +1104,17 @@ function showScene(name) {
   if (el) el.classList.add('active');
   const isGame = name === 'game';
   const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  // game-ui (HUD等) はゲーム中のみ表示
+  // ゲームUI: position:fixed要素を個別にdisplay制御
+  const hudEl = document.querySelector('.hud');
+  if (hudEl) hudEl.style.display = isGame ? 'flex' : 'none';
   document.getElementById('joystick').classList.toggle('visible', isGame && isMobile);
   document.getElementById('bark-btn').classList.toggle('visible', isGame);
-
   document.getElementById('key-hint').style.display = (isGame && !isMobile) ? 'block' : 'none';
+  const guBtn = document.getElementById('give-up-btn');
+  if (guBtn) guBtn.style.display = isGame ? '' : 'none';
+  const fcBtn = document.getElementById('force-clear-btn');
+  if (fcBtn) fcBtn.style.display = isGame ? '' : 'none';
   if (isGame) {
     resize();
     requestAnimationFrame(() => resize());
@@ -1113,6 +1122,8 @@ function showScene(name) {
   // waiting シーン: 犬設定UIのactive状態を同期
   if (name === 'waiting') {
     markPreviewDirty();
+    const dbgEl = document.getElementById('dbg-scene');
+    if (dbgEl) dbgEl.textContent = 'scene:'+currentScene+' level:'+GAME.level;
     const colContainer = document.getElementById('dog-colors');
     if (colContainer) colContainer.querySelectorAll('.color-dot').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.color === DOG_CUSTOM.color);
@@ -2069,6 +2080,23 @@ function startLevel() {
 
   camX = dog.x; camY = dog.y;
   levelStartT = totalT;
+
+}
+
+
+// 強制クリア: 全動物を正しい柵内に移動
+function forceAnimalsToPens() {
+  if (!LEVEL_SPEC || currentScene !== 'game') return;
+  ENTITIES.forEach(e => {
+    const pt = PARAMS[e.type].pen;
+    if (!pt) return;
+    const pen = PENS.find(p => p.penType === pt);
+    if (!pen) return;
+    // 柵中央付近にランダム配置
+    e.x = pen.cx + (Math.random()-0.5)*pen.size*0.6;
+    e.y = pen.cy + (Math.random()-0.5)*pen.size*0.6;
+    e.vx = 0; e.vy = 0;
+  });
 }
 
 function spawnWolf() {
@@ -2264,24 +2292,40 @@ function updateHUD() {
       }
     }
   });
+  // target-row: canvasを再利用 (iOS canvas context limit 対策)
   const t = document.getElementById('hud-targets');
-  t.innerHTML = '';
-  for (const p in totalBy) {
-    const got = insideBy[p] || 0, need = totalBy[p];
-    const full = got >= need;
+  const existingRows = t.querySelectorAll('.target-row');
+  const pList = Object.keys(totalBy);
+  // 必要な行数に合わせて追加/削除
+  while (t.querySelectorAll('.target-row').length < pList.length) {
     const row = document.createElement('div');
     row.className = 'target-row';
     const ic = document.createElement('canvas');
-    ic.className = 'target-icon';
-    ic.width = 28; ic.height = 28;
-    drawHUDIcon(ic, p);
+    ic.className = 'target-icon'; ic.width = 28; ic.height = 28;
     row.appendChild(ic);
-    const span = document.createElement('span');
-    span.className = 'target-count' + (full?' full':'');
-    span.textContent = `${got}/${need}`;
+    const span = document.createElement('span'); span.className = 'target-count';
     row.appendChild(span);
     t.appendChild(row);
   }
+  while (t.querySelectorAll('.target-row').length > pList.length) {
+    t.removeChild(t.lastChild);
+  }
+  // 内容更新のみ (canvas は再利用)
+  t.querySelectorAll('.target-row').forEach((row, i) => {
+    const p = pList[i];
+    const got = insideBy[p] || 0, need = totalBy[p];
+    const full = got >= need;
+    const ic = row.querySelector('canvas');
+    if (ic && ic.dataset.penType !== p) {
+      ic.dataset.penType = p;
+      drawHUDIcon(ic, p);
+    }
+    const span = row.querySelector('span');
+    if (span) {
+      span.className = 'target-count' + (full?' full':'');
+      span.textContent = `${got}/${need}`;
+    }
+  });
 
   // 全動物が柵内かチェック → allInPenTimer 更新は loop() 内で行う
   return { totalBy, insideBy };
@@ -3424,7 +3468,7 @@ function drawAll() {
 
     // 全柵内カウントダウン表示
     if (allInPenTimer > 0) {
-      const rem10 = Math.ceil(10 - allInPenTimer);
+      const rem10 = Math.ceil(5 - allInPenTimer);
       const alpha = 0.7 + Math.sin(totalT * Math.PI * 2) * 0.15;
       ctx.save();
       ctx.fillStyle = `rgba(255, 230, 80, ${alpha})`;
@@ -3688,7 +3732,7 @@ function loop(ts) {
             if (currentScene === 'game') { endGame('timeout'); return; }
           }
           // 10秒完了
-          if (allInPenTimer >= 10) {
+          if (allInPenTimer >= 5) {
             if (currentScene === 'game') { endGame('allIn'); return; }
           }
         }
@@ -3697,14 +3741,14 @@ function loop(ts) {
       try { updateHUD(); } catch(err) { console.error('updateHUD err', err); }
     } catch(err) { console.error('update-block err', err); window._lastError = String(err); }
     drawAll();
-    // エラー表示 (デバッグ用)
-    if (window._lastError) {
+    // startLevelエラー表示
+    if (window._startLevelError) {
       ctx.save();
-      ctx.fillStyle = 'rgba(255,0,0,0.85)';
-      ctx.fillRect(0, CH-60, CW, 60);
-      ctx.fillStyle = '#fff'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(window._lastError.slice(0, 80), 8, CH-40);
-      ctx.fillText(window._lastError.slice(80, 160), 8, CH-22);
+      ctx.fillStyle='rgba(255,0,0,0.9)'; ctx.fillRect(0,80,CW,120);
+      ctx.fillStyle='#fff'; ctx.font='12px monospace'; ctx.textAlign='left';
+      window._startLevelError.split('\n').forEach((line,i)=>{
+        ctx.fillText(line.slice(0,60), 8, 100+i*18);
+      });
       ctx.restore();
     }
   }
@@ -3796,6 +3840,7 @@ function setupWaiting() {
 
   document.getElementById('back-to-menu-btn').addEventListener('click', () => showScene('menu'));
   document.getElementById('go-field-btn').addEventListener('click', () => {
+    console.log('GO FIELD clicked, level='+GAME.level);
     startLevel();
     showScene('game');
   });
@@ -3813,10 +3858,12 @@ function updateWaitingUI() {
 }
 
 // プレビュー描画 (DOM canvas、図形ベース)
+let _previewCtx = null;
 function drawDogPreview() {
   const cvs = document.getElementById('dog-preview-canvas');
   if (!cvs) return;
-  const pc = cvs.getContext('2d');
+  if (!_previewCtx) _previewCtx = cvs.getContext('2d');
+  const pc = _previewCtx;
   if (!pc) return;
   const cw = cvs.width, ch = cvs.height;
 
